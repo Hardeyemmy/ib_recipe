@@ -24,9 +24,20 @@ class RecipeDetailsScreen extends StatelessWidget {
                 recipe.imageUrl,
                 fit: BoxFit.cover,
               ),
-              const SizedBox(height: 12.0),
-              const Text('Ingredients: '),
               Text(recipe.description),
+              const SizedBox(height: 12.0),
+              const Text('Ingredients:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              ...recipe.ingredients
+                  .map((ingredient) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('• ${ingredient.name}',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('  ${ingredient.description}'),
+                        ],
+                      ))
+                  .toList(),
             ],
           ),
         ),
