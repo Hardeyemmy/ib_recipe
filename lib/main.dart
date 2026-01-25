@@ -13,6 +13,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ib Recipe App',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.green,
+        ),
+      ),
       home: RecipeHomeScreen(),
     );
   }
@@ -169,20 +175,21 @@ class RecipeHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'Ib Recipe App',
-            style: TextStyle(color: Colors.purpleAccent),
-            textAlign: TextAlign.justify,
-          ),
-          backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Ib Recipe App'),
+        backgroundColor: Colors.green,
+        elevation: 0,
+      ),
+      body: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
         ),
-        body: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2),
-            itemCount: recipes.length,
-            itemBuilder: (context, index) {
-              return RecipeCard(recipe: recipes[index]);
-            }));
+        padding: const EdgeInsets.all(8),
+        itemCount: recipes.length,
+        itemBuilder: (context, index) => RecipeCard(recipe: recipes[index]),
+      ),
+    );
   }
 }
