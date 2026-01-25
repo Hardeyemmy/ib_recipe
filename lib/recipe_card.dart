@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'recipe.dart';
 import 'recipe_details.dart';
+import 'animated.dart';
 
 class RecipeCard extends StatefulWidget {
   const RecipeCard({required this.recipe, super.key});
@@ -87,33 +88,6 @@ class _RecipeCardState extends State<RecipeCard> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class AnimatedCard extends StatelessWidget {
-  const AnimatedCard({
-    required this.elevation,
-    required this.duration,
-    required this.child,
-  });
-
-  final double elevation;
-  final Duration duration;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: elevation, end: elevation),
-      duration: duration,
-      builder: (context, value, _) {
-        return Card(
-          elevation: value,
-          clipBehavior: Clip.antiAlias,
-          child: child,
-        );
-      },
     );
   }
 }
