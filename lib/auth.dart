@@ -1,34 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:provider/provider.dart';
 
-class Auth extends StatelessWidget {
-  const Auth({required this.loggedIn, required this.signOut, super.key});
+import 'app_state.dart';
+import 'main.dart';
 
-  final bool loggedIn;
-  final VoidCallback signOut;
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: ElevatedButton(
-              onPressed: () {
-                !loggedIn ? context.push('/login') : signOut();
-              },
-              child: !loggedIn ? const Text('RSVP') : const Text('Logout')),
-        ),
-        Visibility(
-            visible: loggedIn,
-            child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ElevatedButton(
-                    onPressed: () {
-                      context.push('/profile');
-                    },
-                    child: const Text("Profile"))))
+    final appState = context.watch<ApplicationState>();
+
+    // 🔓 Logged in & email verified
+    if (appState.isLoggedIn && appState.isEmailVerified) {
+      return RecipeHomeScreen();
+    }
+
+    // 📧 Logged in but NOT verified
+    if (appState.isLoggedIn && !appState.isEmailVerified) {
+      return EmailVerificationScreen(
+        actions: [
+          EmailVerifiedAction(() {
+            // When verified, rebuild → AuthGate sends user to home
+          }),
+          AuthCancelledAction((context) {
+            context.read<ApplicationState>().signOut();
+          }),
+        ],
+      );
+    }
+
+    // 🔐 Not logged in → Register / Login
+    return SignInScreen(
+      providers: [
+        EmailAuthProvider(),
       ],
+      showAuthActionSwitch: true,
     );
   }
 }

@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:ib_recipe/auth.dart';
 import 'recipe.dart';
 import 'recipe_card.dart';
+import 'firebase_options.dart';
+import 'package:provider/provider.dart';
+import 'app_state.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseUIAuth.configureProviders([EmailAuthProvider()]);
+  runApp(ChangeNotifierProvider(
+    create: (_) => ApplicationState(),
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
@@ -19,7 +33,7 @@ class MyApp extends StatelessWidget {
           seedColor: Colors.green,
         ),
       ),
-      home: RecipeHomeScreen(),
+      home: const AuthGate(),
     );
   }
 }
@@ -179,6 +193,14 @@ class RecipeHomeScreen extends StatelessWidget {
         title: const Text('Ib Recipe App'),
         backgroundColor: Colors.green,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              context.read<ApplicationState>().signOut();
+            },
+          ),
+        ],
       ),
       body: GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
