@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ib_recipe/auth.dart';
 import 'recipe.dart';
 import 'recipe_card.dart';
@@ -10,9 +11,11 @@ import 'app_state.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   FirebaseUIAuth.configureProviders([EmailAuthProvider()]);
   runApp(ChangeNotifierProvider(
     create: (_) => ApplicationState(),
@@ -25,15 +28,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Ib Recipe App',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.green,
+    return ChangeNotifierProvider(
+      create: (_) => ApplicationState(),
+      child: MaterialApp(
+        title: 'Ib Recipe App',
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.green,
+          ),
         ),
+        home: const AuthGate(),
       ),
-      home: const AuthGate(),
     );
   }
 }
@@ -198,6 +204,15 @@ class RecipeHomeScreen extends StatelessWidget {
             icon: const Icon(Icons.logout),
             onPressed: () {
               context.read<ApplicationState>().signOut();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
             },
           ),
         ],

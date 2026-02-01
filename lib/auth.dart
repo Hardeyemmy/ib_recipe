@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
 import 'package:provider/provider.dart';
-
 import 'app_state.dart';
 import 'main.dart';
+import 'complete_profile.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -12,29 +12,42 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = context.watch<ApplicationState>();
 
-    // 🔓 Logged in & email verified
-    if (appState.isLoggedIn && appState.isEmailVerified) {
+    // 🔓 Logged in & email verified → App access
+    // 🔓 Logged in, verified, profile complete
+    if (appState.isLoggedIn &&
+        appState.isEmailVerified &&
+        appState.isProfileComplete) {
       return RecipeHomeScreen();
     }
 
-    // 📧 Logged in but NOT verified
+    // 🧾 Profile incomplete → force completion
+    if (appState.isLoggedIn &&
+        appState.isEmailVerified &&
+        !appState.isProfileComplete) {
+      return const CompleteProfileScreen();
+    }
+
+    // 📧 Logged in but NOT verified → Force verification
     if (appState.isLoggedIn && !appState.isEmailVerified) {
-      return EmailVerificationScreen(
+      return ui.EmailVerificationScreen(
         actions: [
-          EmailVerifiedAction(() {
-            // When verified, rebuild → AuthGate sends user to home
+          // Rebuild happens automatically via ApplicationState.reloadUser()
+          ui.EmailVerifiedAction(() async {
+            await context.read<ApplicationState>().reloadUser();
           }),
-          AuthCancelledAction((context) {
-            context.read<ApplicationState>().signOut();
+
+          // User cancels → sign out
+          ui.AuthCancelledAction((context) async {
+            await context.read<ApplicationState>().signOut();
           }),
         ],
       );
     }
 
     // 🔐 Not logged in → Register / Login
-    return SignInScreen(
+    return ui.SignInScreen(
       providers: [
-        EmailAuthProvider(),
+        ui.EmailAuthProvider(),
       ],
       showAuthActionSwitch: true,
     );
