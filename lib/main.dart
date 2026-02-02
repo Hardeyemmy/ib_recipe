@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:ib_recipe/auth.dart';
 import 'recipe.dart';
 import 'recipe_card.dart';
 import 'firebase_options.dart';
-import 'package:provider/provider.dart';
 import 'app_state.dart';
+import 'profileedit_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -196,7 +196,8 @@ class RecipeHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ib Recipe App'),
+        title: Text(
+            'Welcome, ${context.watch<ApplicationState>().displayName ?? 'User'}'),
         backgroundColor: Colors.green,
         elevation: 0,
         actions: [
@@ -212,6 +213,17 @@ class RecipeHomeScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const EditProfileScreen(),
+                ),
               );
             },
           ),

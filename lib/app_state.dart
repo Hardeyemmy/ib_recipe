@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ApplicationState extends ChangeNotifier {
   ApplicationState() {
@@ -11,6 +13,7 @@ class ApplicationState extends ChangeNotifier {
   // 🔐 Firebase
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // 👤 Auth user
   User? _user;
@@ -30,6 +33,7 @@ class ApplicationState extends ChangeNotifier {
 
   bool get isProfileLoading => _profileLoading;
   DocumentSnapshot<Map<String, dynamic>>? get profile => _profile;
+  String? get photoUrl => _profile?.data()?['photoUrl'];
 
   /// 👋 This is what your UI uses
   String? get displayName => _profile?.data()?['displayName'];
@@ -118,6 +122,21 @@ class ApplicationState extends ChangeNotifier {
     if (_user != null && !_user!.emailVerified) {
       await _user!.sendEmailVerification();
     }
+  }
+
+  Future<void> updateProfilePhoto(Uint8List imageBytes) async {
+    if (_user == null) return;
+
+    final ref = _storage.ref('profile_photos/${_user!.uid}.jpg');
+
+    await ref.putData(imageBytes);
+
+    final url = await ref.getDownloadURL();
+
+    await _firestore.collection('users').doc(_user!.uid).update({
+      'photoUrl': url,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> reloadUser() async {
