@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'recipe.dart';
 
 class ApplicationState extends ChangeNotifier {
   ApplicationState() {
@@ -13,7 +12,6 @@ class ApplicationState extends ChangeNotifier {
   // 🔐 Firebase
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // 👤 Auth user
   User? _user;
@@ -34,6 +32,9 @@ class ApplicationState extends ChangeNotifier {
   bool get isProfileLoading => _profileLoading;
   DocumentSnapshot<Map<String, dynamic>>? get profile => _profile;
   String? get photoUrl => _profile?.data()?['photoUrl'];
+  String get role => _profile?.data()?['role'] ?? 'user';
+
+  bool get isAdmin => role == 'admin';
 
   /// 👋 This is what your UI uses
   String? get displayName => _profile?.data()?['displayName'];
@@ -63,6 +64,25 @@ class ApplicationState extends ChangeNotifier {
 
       notifyListeners();
     });
+  }
+
+  Future<void> addRecipesBatch(List<Recipe> recipes) async {
+    if (_user == null) return;
+
+    final batch = _firestore.batch();
+    final recipesRef = _firestore.collection('recipes');
+
+    for (final recipe in recipes) {
+      final docRef = recipesRef.doc();
+
+      batch.set(docRef, {
+        ...recipe.toMap(),
+        'createdBy': _user!.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   }
 
   // PROFILE LISTENER
@@ -95,7 +115,7 @@ class ApplicationState extends ChangeNotifier {
           'uid': user.uid,
           'email': user.email,
           'displayName': user.displayName ?? 'New User',
-          'photoUrl': user.photoURL ?? '',
+          'role': 'user',
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
@@ -122,21 +142,6 @@ class ApplicationState extends ChangeNotifier {
     if (_user != null && !_user!.emailVerified) {
       await _user!.sendEmailVerification();
     }
-  }
-
-  Future<void> updateProfilePhoto(Uint8List imageBytes) async {
-    if (_user == null) return;
-
-    final ref = _storage.ref('profile_photos/${_user!.uid}.jpg');
-
-    await ref.putData(imageBytes);
-
-    final url = await ref.getDownloadURL();
-
-    await _firestore.collection('users').doc(_user!.uid).update({
-      'photoUrl': url,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
   }
 
   Future<void> reloadUser() async {
