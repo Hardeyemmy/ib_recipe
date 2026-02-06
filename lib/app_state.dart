@@ -22,6 +22,7 @@ class ApplicationState extends ChangeNotifier {
   // 📄 Profile
   DocumentSnapshot<Map<String, dynamic>>? _profile;
   bool _profileLoading = true;
+  String _role = 'user';
 
   // GETTERS
 
@@ -32,9 +33,7 @@ class ApplicationState extends ChangeNotifier {
   bool get isProfileLoading => _profileLoading;
   DocumentSnapshot<Map<String, dynamic>>? get profile => _profile;
   String? get photoUrl => _profile?.data()?['photoUrl'];
-  String get role => _profile?.data()?['role'] ?? 'user';
-
-  bool get isAdmin => role == 'admin';
+  bool get isAdmin => _role == 'admin';
 
   /// 👋 This is what your UI uses
   String? get displayName => _profile?.data()?['displayName'];
@@ -147,6 +146,14 @@ class ApplicationState extends ChangeNotifier {
   Future<void> reloadUser() async {
     await _user?.reload();
     _user = _auth.currentUser;
+    notifyListeners();
+  }
+
+  Future<void> loadUserRole(String uid) async {
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+    _role = doc.data()?['role'];
     notifyListeners();
   }
 

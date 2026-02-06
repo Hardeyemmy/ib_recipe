@@ -36,9 +36,23 @@ class RecipeDetailsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: _padding),
-              Text(
-                recipe.description,
-                style: Theme.of(context).textTheme.bodyLarge,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      recipe.description,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ),
+                  Text(
+                    '₦${recipe.price}',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                  ),
+                ],
               ),
               const SizedBox(height: _padding),
               Text(

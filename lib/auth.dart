@@ -1,9 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
 import 'package:provider/provider.dart';
 import 'app_state.dart';
-import 'recipe_homescreen.dart';
 import 'complete_profile.dart';
+import 'recipe_homescreen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -12,31 +13,27 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = context.watch<ApplicationState>();
 
-    // 🔓 Logged in & email verified → App access
-    // 🔓 Logged in, verified, profile complete
+    // Logged in & email verified & profile complete → App access
     if (appState.isLoggedIn &&
         appState.isEmailVerified &&
         appState.isProfileComplete) {
       return const RecipeHomeScreen();
     }
 
-    // 🧾 Profile incomplete → force completion
+    // Profile incomplete → force completion
     if (appState.isLoggedIn &&
         appState.isEmailVerified &&
         !appState.isProfileComplete) {
       return const CompleteProfileScreen();
     }
 
-    // 📧 Logged in but NOT verified → Force verification
+    // Logged in but NOT verified → Force verification
     if (appState.isLoggedIn && !appState.isEmailVerified) {
       return ui.EmailVerificationScreen(
         actions: [
-          // Rebuild happens automatically via ApplicationState.reloadUser()
           ui.EmailVerifiedAction(() async {
             await context.read<ApplicationState>().reloadUser();
           }),
-
-          // User cancels → sign out
           ui.AuthCancelledAction((context) async {
             await context.read<ApplicationState>().signOut();
           }),
@@ -44,7 +41,7 @@ class AuthGate extends StatelessWidget {
       );
     }
 
-    // 🔐 Not logged in → Register / Login
+    // 🔐 Not logged in → Show SignInScreen with Glassmorphism
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -58,33 +55,37 @@ class AuthGate extends StatelessWidget {
                 ),
               ),
 
-              // 2️⃣ Dark overlay
+              // 2️⃣ Dark overlay (optional, makes text pop)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withOpacity(0.45),
+                  color: Colors.black.withOpacity(0.35),
                 ),
               ),
 
-              // 3️⃣ Centered login card
+              // 3️⃣ Centered Glassmorphism Card
               Center(
                 child: ConstrainedBox(
-                  // Constrain max width and height for SignInScreen
                   constraints: BoxConstraints(
-                    maxWidth: 400, // optional for wide screens
+                    maxWidth: 400,
                     maxHeight: constraints.maxHeight * 0.9,
                   ),
-                  child: Card(
-                    elevation: 12,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: ui.SignInScreen(
-                        providers: [
-                          ui.EmailAuthProvider(),
-                        ],
-                        showAuthActionSwitch: true,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(25),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(24),
+                        child: ui.SignInScreen(
+                          providers: [ui.EmailAuthProvider()],
+                          showAuthActionSwitch: true,
+                        ),
                       ),
                     ),
                   ),

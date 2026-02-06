@@ -6,6 +6,7 @@ class Recipe {
   final String imageUrl;
   final String description;
   final List<Ingredient> ingredients;
+  final int price;
 
   Recipe({
     required this.id,
@@ -13,6 +14,7 @@ class Recipe {
     required this.imageUrl,
     required this.description,
     required this.ingredients,
+    required this.price,
   });
 
   /// 🔄 Convert Recipe to Firestore map
@@ -24,6 +26,7 @@ class Recipe {
       name: data['name'] ?? '',
       imageUrl: data['imageUrl'] ?? '',
       description: data['description'] ?? '',
+      price: data['price'] ?? 0,
       ingredients: (data['ingredients'] as List? ?? [])
           .map((i) => Ingredient(
                 name: i['name'],
@@ -37,6 +40,7 @@ class Recipe {
       'name': name,
       'imageUrl': imageUrl,
       'description': description,
+      'price': price,
       'ingredients': ingredients.map((i) => i.toMap()).toList(),
     };
   }

@@ -4,9 +4,10 @@ import 'recipe_details.dart';
 import 'animated.dart';
 
 class RecipeCard extends StatefulWidget {
-  const RecipeCard({required this.recipe, super.key});
+  const RecipeCard({required this.recipe, this.price, super.key});
 
   final Recipe recipe;
+  final int? price;
 
   @override
   State<RecipeCard> createState() => _RecipeCardState();
@@ -79,6 +80,15 @@ class _RecipeCardState extends State<RecipeCard> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: _descriptionFontSize),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '₦${widget.recipe.price}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: _titleFontSize,
+                          color: Colors.green,
+                        ),
                       ),
                     ],
                   ),
