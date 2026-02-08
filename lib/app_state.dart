@@ -92,6 +92,14 @@ class ApplicationState extends ChangeNotifier {
       (doc) {
         _profile = doc;
         _profileLoading = false;
+        // Update role from profile document so UI can react to admin changes
+        try {
+          final roleValue = doc.data()?['role'];
+          _role = roleValue is String ? roleValue : _role;
+        } catch (_) {
+          // ignore and keep existing role
+        }
+
         notifyListeners();
       },
       onError: (e) {

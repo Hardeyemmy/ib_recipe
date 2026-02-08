@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'complete_profile.dart';
 import 'recipe_homescreen.dart';
+import 'admin_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -12,6 +13,11 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<ApplicationState>();
+
+    // Admins should get the admin dashboard first
+    if (appState.isLoggedIn && appState.isAdmin) {
+      return const AdminDashboard();
+    }
 
     // Logged in & email verified & profile complete → App access
     if (appState.isLoggedIn &&

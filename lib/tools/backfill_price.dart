@@ -5,11 +5,12 @@ Future<void> backfillPrices() async {
   final snap = await col.get();
   for (final doc in snap.docs) {
     final data = doc.data();
-    if (!data.containsKey('price') || data['price'] == null) {
-      await doc.reference.update({'price': 0});
-    } else if (data['price'] is String) {
-      final p = int.tryParse(data['price'] as String) ?? 0;
-      await doc.reference.update({'price': p});
+    // Only update if Price doesn't exist AND price (lowercase) doesn't exist
+    if (!data.containsKey('Price') && !data.containsKey('price')) {
+      await doc.reference.update({'Price': 0});
+    } else if (data['Price'] is String) {
+      final p = int.tryParse(data['Price'] as String) ?? 0;
+      await doc.reference.update({'Price': p});
     }
   }
 }

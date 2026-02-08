@@ -48,7 +48,6 @@ class Recipe {
         price = int.tryParse(priceData) ?? 0;
       }
     }
-    print('✅ Final price: $price');
 
     return Recipe(
       id: doc.id,
