@@ -29,8 +29,9 @@ class _EditMenuItemScreenState extends State<EditMenuItemScreen> {
     final data = widget.doc.data() as Map<String, dynamic>;
 
     nameController = TextEditingController(text: data['name'] ?? '');
-    priceController =
-        TextEditingController(text: data['price']?.toString() ?? '');
+    priceController = TextEditingController(
+      text: (data['price'] != null) ? data['price'].toString() : '',
+    );
     descriptionController =
         TextEditingController(text: data['description'] ?? '');
   }
@@ -38,34 +39,27 @@ class _EditMenuItemScreenState extends State<EditMenuItemScreen> {
   // 🔥 Update Menu Item
   Future<void> updateMenuItem() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => isLoading = true);
 
     try {
+      final price = int.tryParse(priceController.text.trim()) ?? 0;
       await FirebaseFirestore.instance
-          .collection('menu')
+          .collection('recipes')
           .doc(widget.doc.id)
           .update({
         'name': nameController.text.trim(),
-        'price': double.parse(priceController.text.trim()),
         'description': descriptionController.text.trim(),
+        'price': price,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Menu updated successfully")),
-      );
-
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Update failed: $e")),
+        SnackBar(content: Text('Error: $e')),
       );
+    } finally {
+      setState(() => isLoading = false);
     }
-
-    setState(() => isLoading = false);
   }
 
   @override
@@ -79,74 +73,44 @@ class _EditMenuItemScreenState extends State<EditMenuItemScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Edit Menu Item"),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      appBar: AppBar(title: const Text('Edit Recipe')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
-              // 🍲 Name
               TextFormField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: "Menu Name",
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Recipe Name'),
                 validator: (value) =>
-                    value == null || value.isEmpty ? "Enter menu name" : null,
+                    value!.isEmpty ? 'Please enter name' : null,
               ),
-
               const SizedBox(height: 16),
-
-              // 💰 Price
+              TextFormField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 3,
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter description' : null,
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: priceController,
+                decoration: const InputDecoration(labelText: 'Price (₦)'),
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Price (₦)",
-                  border: OutlineInputBorder(),
-                ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Enter price";
-                  }
-                  if (double.tryParse(value) == null) {
-                    return "Enter valid number";
-                  }
+                  if (value!.isEmpty) return 'Please enter price';
+                  if (int.tryParse(value) == null) return 'Invalid number';
                   return null;
                 },
               ),
-
-              const SizedBox(height: 16),
-
-              // 📝 Description
-              TextFormField(
-                controller: descriptionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: "Description",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // 💾 Update Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : updateMenuItem,
-                  child: isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text(
-                          "Update Menu Item",
-                          style: TextStyle(fontSize: 18),
-                        ),
-                ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: isLoading ? null : updateMenuItem,
+                child: isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Update Recipe'),
               ),
             ],
           ),
