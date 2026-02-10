@@ -88,9 +88,20 @@ class AuthGate extends StatelessWidget {
                           ),
                         ),
                         padding: const EdgeInsets.all(24),
-                        child: ui.SignInScreen(
-                          providers: [ui.EmailAuthProvider()],
-                          showAuthActionSwitch: true,
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            scaffoldBackgroundColor: Colors.transparent,
+                            cardColor: Colors.white.withOpacity(0.15),
+                            dialogBackgroundColor: Colors.transparent,
+                            colorScheme: Theme.of(context).colorScheme.copyWith(
+                                  surface: Colors.white.withOpacity(0.15),
+                                  background: Colors.transparent,
+                                ),
+                          ),
+                          child: ui.SignInScreen(
+                            providers: [ui.EmailAuthProvider()],
+                            showAuthActionSwitch: true,
+                          ),
                         ),
                       ),
                     ),
