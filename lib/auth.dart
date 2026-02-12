@@ -14,26 +14,26 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = context.watch<ApplicationState>();
 
-    // Admins should get the admin dashboard first
+    // 🔓 Admin
     if (appState.isLoggedIn && appState.isAdmin) {
       return const AdminDashboard();
     }
 
-    // Logged in & email verified & profile complete → App access
+    // 🔓 Normal user
     if (appState.isLoggedIn &&
         appState.isEmailVerified &&
         appState.isProfileComplete) {
       return const RecipeHomeScreen();
     }
 
-    // Profile incomplete → force completion
+    // 🧾 Complete profile
     if (appState.isLoggedIn &&
         appState.isEmailVerified &&
         !appState.isProfileComplete) {
       return const CompleteProfileScreen();
     }
 
-    // Logged in but NOT verified → Force verification
+    // 📧 Email verification
     if (appState.isLoggedIn && !appState.isEmailVerified) {
       return ui.EmailVerificationScreen(
         actions: [
@@ -47,71 +47,73 @@ class AuthGate extends StatelessWidget {
       );
     }
 
-    // 🔐 Not logged in → Show SignInScreen with Glassmorphism
+    // 🔐 NOT LOGGED IN → Your custom background login screen
     return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            children: [
-              // 1️⃣ Background image
-              Positioned.fill(
-                child: Image.asset(
-                  'assets/ib_recipes.jpg',
-                  fit: BoxFit.cover,
-                ),
-              ),
+      body: Stack(
+        children: [
+          // 1️⃣ Background Image
+          Positioned.fill(
+            child: Image.asset(
+              'assets/ib_recipes.jpg',
+              fit: BoxFit.cover,
+            ),
+          ),
 
-              // 2️⃣ Dark overlay (optional, makes text pop)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withAlpha(90), // 0.35 * 255 = 90
-                ),
-              ),
+          // 2️⃣ Dark Overlay
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withAlpha(90),
+            ),
+          ),
 
-              // 3️⃣ Centered Glassmorphism Card
-              Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: 400,
-                    maxHeight: constraints.maxHeight * 0.9,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(25),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(0), // 0.2 * 255 = 51
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color: Colors.white.withAlpha(0), // 0.3 * 255 = 77
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(24),
-                        child: Theme(
-                          data: Theme.of(context).copyWith(
-                            scaffoldBackgroundColor: Colors.transparent,
-                            cardColor: Colors.white.withAlpha(20),
-                            colorScheme: Theme.of(context).colorScheme.copyWith(
-                                  surface: Colors.white.withAlpha(0),
-                                ),
-                            dialogTheme: const DialogThemeData(
-                              backgroundColor: Colors.white,
+          // 3️⃣ Glass Card with SignInScreen
+          // 3️⃣ Centered Logo + Glassmorphism Card
+          Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ✅ App Logo
+
+                  const SizedBox(height: 20),
+
+                  // ✅ Glass Card
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 400,
+                      maxHeight: MediaQuery.of(context).size.height * 0.8,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(25),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(40),
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: Colors.white.withAlpha(80),
                             ),
                           ),
-                          child: ui.SignInScreen(
-                            providers: [ui.EmailAuthProvider()],
-                            showAuthActionSwitch: true,
+                          padding: const EdgeInsets.all(24),
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              scaffoldBackgroundColor: Colors.transparent,
+                            ),
+                            child: ui.SignInScreen(
+                              providers: [ui.EmailAuthProvider()],
+                              showAuthActionSwitch: true,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
