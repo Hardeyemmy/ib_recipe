@@ -5,7 +5,6 @@ import 'recipe_card.dart';
 import 'recipe.dart';
 import 'app_state.dart';
 import 'profile_screen.dart';
-import 'profileedit_screen.dart';
 
 class RecipeHomeScreen extends StatelessWidget {
   const RecipeHomeScreen({super.key});
@@ -14,13 +13,80 @@ class RecipeHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            'Welcome, ${context.watch<ApplicationState>().displayName ?? 'User'}'),
-        backgroundColor: Colors.green,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF2E7D32), // Dark green
+                Color(0xFF66BB6A), // Light green
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            // 🔰 Logo
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/ib_logo.jpg',
+                height: 38,
+                width: 38,
+                fit: BoxFit.cover,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // 🏷 Brand + Welcome
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "IB Recipes",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    "Welcome, ${context.watch<ApplicationState>().displayName ?? 'User'}",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
         actions: [
+          // ✏️ Edit Profile Button
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.white),
+            tooltip: "Edit Profile",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfileScreen(),
+                ),
+              );
+            },
+          ),
+
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
@@ -44,26 +110,6 @@ class RecipeHomeScreen extends StatelessWidget {
               if (confirm == true) {
                 await context.read<ApplicationState>().signOut();
               }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const EditProfileScreen(),
-                ),
-              );
             },
           ),
         ],
