@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'recipe.dart';
+import 'cart_item.dart';
 
 class ApplicationState extends ChangeNotifier {
   ApplicationState() {
@@ -34,6 +35,79 @@ class ApplicationState extends ChangeNotifier {
   DocumentSnapshot<Map<String, dynamic>>? get profile => _profile;
   String? get photoUrl => _profile?.data()?['photoUrl'];
   bool get isAdmin => _role == 'admin';
+
+  final List<CartItem> _cartItems = [];
+  List<CartItem> get cartItems => _cartItems;
+//add to cart
+  void addToCart(CartItem item) {
+    final index = _cartItems.indexWhere((e) => e.recipeId == item.recipeId);
+    if (index >= 0) {
+      _cartItems[index].quantity++;
+    } else {
+      _cartItems.add(item);
+    }
+
+    notifyListeners();
+  }
+
+//remove from cart
+  void removeFromCart(String recipeId) {
+    _cartItems.removeWhere((item) => item.recipeId == recipeId);
+    notifyListeners();
+  }
+
+  //clear cart
+  void clearCart() {
+    _cartItems.clear();
+    notifyListeners();
+  }
+
+  double get cartTotal {
+    return _cartItems.fold(
+        0.0, (sumUp, item) => sumUp + (item.price * item.quantity));
+  }
+
+  int getItemQuantity(String recipeId) {
+    final index = _cartItems.indexWhere((item) => item.recipeId == recipeId);
+
+    if (index >= 0) {
+      return _cartItems[index].quantity;
+    }
+
+    return 0;
+  }
+
+  double get totalPrice {
+    double total = 0.0;
+
+    for (var item in _cartItems) {
+      total += item.price * item.quantity;
+    }
+
+    return total;
+  }
+
+  void increaseQuantity(String recipeId) {
+    final index = _cartItems.indexWhere((item) => item.recipeId == recipeId);
+
+    if (index >= 0) {
+      _cartItems[index].quantity++;
+      notifyListeners();
+    }
+  }
+
+  void decreaseQuantity(String recipeId) {
+    final index = _cartItems.indexWhere((item) => item.recipeId == recipeId);
+
+    if (index >= 0) {
+      if (_cartItems[index].quantity > 1) {
+        _cartItems[index].quantity--;
+      } else {
+        _cartItems.removeAt(index);
+      }
+      notifyListeners();
+    }
+  }
 
   /// 👋 This is what your UI uses
   String? get displayName => _profile?.data()?['displayName'];

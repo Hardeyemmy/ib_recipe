@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
-import 'recipe.dart';
+import 'package:provider/provider.dart';
+import '/app_state.dart';
+import '/recipe.dart';
+import 'cart_item.dart';
+import 'cart_page.dart';
 
-class RecipeDetailsScreen extends StatelessWidget {
-  const RecipeDetailsScreen({required this.recipe, super.key});
+class RecipeDetailsScreen extends StatefulWidget {
+  RecipeDetailsScreen({required this.recipe, super.key});
 
   final Recipe recipe;
+
+  @override
+  State<RecipeDetailsScreen> createState() => _RecipeDetailsScreenState();
+}
+
+class _RecipeDetailsScreenState extends State<RecipeDetailsScreen> {
+  int quantity = 1; // Local quantity for this recipe
 
   static const double _appBarElevation = 2;
   static const double _padding = 12.0;
@@ -14,76 +25,162 @@ class RecipeDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(recipe.name),
+        title: Text(widget.recipe.name),
         backgroundColor: Colors.green,
         elevation: _appBarElevation,
+        actions: [
+          Consumer<ApplicationState>(
+            builder: (context, appState, _) {
+              int itemCount = appState.cartItems.fold(
+                0,
+                (sum, item) => sum + item.quantity,
+              );
+
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CartPage()),
+                      );
+                    },
+                  ),
+                  if (itemCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          itemCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(_padding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.all(
-                  Radius.circular(_imageBorderRadius),
-                ),
-                child: Image.asset(
-                  recipe.imageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: 650,
-                ),
+        padding: const EdgeInsets.all(_padding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(_imageBorderRadius),
+              child: Image.asset(
+                widget.recipe.imageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 400,
               ),
-              const SizedBox(height: _padding),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      recipe.description,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                  Text(
-                    '₦${recipe.price}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: _padding),
-              Text(
-                'Ingredients:',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              ...recipe.ingredients.map(
-                (ingredient) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
+            ),
+            const SizedBox(height: _padding),
+            Text(widget.recipe.description,
+                style: Theme.of(context).textTheme.bodyLarge),
+            const SizedBox(height: _padding),
+            Text(
+              'Ingredients:',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...widget.recipe.ingredients.map((ingredient) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '• ${ingredient.name}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      Text(
-                        '  ${ingredient.description}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      Text('• ${ingredient.name}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      Text('  ${ingredient.description}',
+                          style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
+                )),
+            const SizedBox(height: 100), // space for sticky bottom bar
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Quantity Selector
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: () {
+                    if (quantity > 1) setState(() => quantity--);
+                  },
                 ),
+                Text(
+                  quantity.toString(),
+                  style: const TextStyle(fontSize: 18),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                    setState(() => quantity++);
+                  },
+                ),
+              ],
+            ),
+
+            // Add to Cart Button
+            ElevatedButton(
+              onPressed: () {
+                context.read<ApplicationState>().addToCart(
+                      CartItem(
+                        recipeId: widget.recipe.id,
+                        name: widget.recipe.name,
+                        price: widget.recipe.price.toDouble(),
+                        quantity: quantity,
+                      ),
+                    );
+
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content:
+                      Text('$quantity x ${widget.recipe.name} added to cart!'),
+                  duration: const Duration(seconds: 2),
+                ));
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-            ],
-          ),
+              child: Text('Add to Cart - ₦${widget.recipe.price * quantity}',
+                  style: const TextStyle(fontSize: 16)),
+            ),
+          ],
         ),
       ),
     );

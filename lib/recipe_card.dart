@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'recipe.dart';
 import 'recipe_details.dart';
 import 'animated.dart';
-import 'order_screen.dart';
 
 class RecipeCard extends StatefulWidget {
   const RecipeCard({required this.recipe, this.price, super.key});
@@ -92,26 +91,6 @@ class _RecipeCardState extends State<RecipeCard> {
                         ),
                       ),
                     ],
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => OrderScreen(
-                          recipeName: widget.recipe.name,
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    "Order Now",
-                    style: TextStyle(color: Colors.white),
                   ),
                 ),
               ],
