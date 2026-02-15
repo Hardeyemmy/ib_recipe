@@ -5,6 +5,7 @@ import 'recipe_card.dart';
 import 'recipe.dart';
 import 'app_state.dart';
 import 'profile_screen.dart';
+import 'cart_page.dart';
 
 class RecipeHomeScreen extends StatelessWidget {
   const RecipeHomeScreen({super.key});
@@ -70,6 +71,58 @@ class RecipeHomeScreen extends StatelessWidget {
         ),
         backgroundColor: const Color(0xFF4CAF50),
         actions: [
+          // 🛒 Cart with Live Badge
+          Consumer<ApplicationState>(
+            builder: (context, appState, _) {
+              int itemCount = appState.cartItems.fold(
+                0,
+                (sumUp, item) => sumUp + item.quantity,
+              );
+
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                    tooltip: "Cart",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CartPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (itemCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          itemCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+
           // ✏️ Edit Profile Button
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
@@ -84,8 +137,9 @@ class RecipeHomeScreen extends StatelessWidget {
             },
           ),
 
+          // 🚪 Logout Button
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             tooltip: 'Logout',
             onPressed: () async {
               final confirm = await showDialog<bool>(
@@ -100,8 +154,10 @@ class RecipeHomeScreen extends StatelessWidget {
                     ),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Logout',
-                          style: TextStyle(color: Colors.red)),
+                      child: const Text(
+                        'Logout',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),
