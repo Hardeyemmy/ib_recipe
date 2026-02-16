@@ -58,7 +58,7 @@ class RecipeHomeScreen extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    "Welcome, ${context.watch<ApplicationState>().displayName ?? 'User'}",
+                    "Welcome, ${context.watch<ApplicationState>().displayName}",
                     style: const TextStyle(
                       fontSize: 13,
                       color: Colors.white70,

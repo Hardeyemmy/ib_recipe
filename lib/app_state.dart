@@ -34,6 +34,8 @@ class ApplicationState extends ChangeNotifier {
   bool get isProfileLoading => _profileLoading;
   DocumentSnapshot<Map<String, dynamic>>? get profile => _profile;
   String? get photoUrl => _profile?.data()?['photoUrl'];
+  String _displayName = 'User';
+
   bool get isAdmin => _role == 'admin';
 
   final List<CartItem> _cartItems = [];
@@ -110,7 +112,7 @@ class ApplicationState extends ChangeNotifier {
   }
 
   /// 👋 This is what your UI uses
-  String? get displayName => _profile?.data()?['displayName'];
+  String get displayName => _displayName;
 
   bool get isProfileComplete {
     final name = displayName;
@@ -166,12 +168,12 @@ class ApplicationState extends ChangeNotifier {
       (doc) {
         _profile = doc;
         _profileLoading = false;
-        // Update role from profile document so UI can react to admin changes
-        try {
-          final roleValue = doc.data()?['role'];
-          _role = roleValue is String ? roleValue : _role;
-        } catch (_) {
-          // ignore and keep existing role
+
+        final data = doc.data();
+
+        if (data != null) {
+          _displayName = (data['displayName'] ?? 'User').toString();
+          _role = data['role'] ?? _role;
         }
 
         notifyListeners();
@@ -195,7 +197,9 @@ class ApplicationState extends ChangeNotifier {
         await ref.set({
           'uid': user.uid,
           'email': user.email,
-          'displayName': user.displayName ?? 'New User',
+          'displayName': user.displayName?.trim().isNotEmpty == true
+              ? user.displayName
+              : 'New User',
           'role': 'user',
           'createdAt': FieldValue.serverTimestamp(),
         });

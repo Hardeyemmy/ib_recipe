@@ -39,7 +39,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             CircleAvatar(
               radius: 40,
               child: Text(
-                (appState.displayName ?? 'U')[0].toUpperCase(),
+                (appState.displayName)[0].toUpperCase(),
                 style: const TextStyle(fontSize: 32),
               ),
             ),
