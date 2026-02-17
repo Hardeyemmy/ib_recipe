@@ -122,19 +122,24 @@ class ApplicationState extends ChangeNotifier {
   // INIT
 
   void _init() {
-    _authSubscription = _auth.authStateChanges().listen((user) async {
-      _user = user;
+    _authSubscription = _auth.authStateChanges().listen((User? user) async {
+      _user = user; // ✅ VERY IMPORTANT
 
-      // Clean up old listeners
-      await _profileSubscription?.cancel();
-      _profile = null;
-      _profileLoading = true;
-
-      if (user != null) {
-        await _createProfileIfNotExists(user);
-        _listenToProfile(user.uid);
-      } else {
+      if (user == null) {
+        _role = 'user';
+        _profile = null;
+        _displayName = 'User';
         _profileLoading = false;
+        await _profileSubscription?.cancel();
+        _profileSubscription = null;
+      } else {
+        _profileLoading = true;
+
+        // ✅ Create profile automatically for new users
+        await _createProfileIfNotExists(user);
+
+        // ✅ Start listening to profile
+        _listenToProfile(user.uid);
       }
 
       notifyListeners();
@@ -191,22 +196,16 @@ class ApplicationState extends ChangeNotifier {
     final ref = _firestore.collection('users').doc(user.uid);
 
     try {
-      final snapshot = await ref.get();
-
-      if (!snapshot.exists) {
-        await ref.set({
-          'uid': user.uid,
-          'email': user.email,
-          'displayName': user.displayName?.trim().isNotEmpty == true
-              ? user.displayName
-              : 'New User',
-          'role': 'user',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
+      await ref.set({
+        'uid': user.uid,
+        'email': user.email,
+        'displayName':
+            user.displayName ?? user.email?.split('@').first ?? 'User',
+        'role': 'user',
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)); // 🔥 THIS IS THE FIX
     } catch (e) {
-      // Web/offline safe
-      debugPrint('Firestore offline, profile creation deferred');
+      debugPrint('Profile creation skipped (offline): $e');
     }
   }
 
