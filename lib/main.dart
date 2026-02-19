@@ -8,11 +8,10 @@ import 'app_state.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('Before FireBase Initialization');
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  print('After Initialization');
 
   FirebaseUIAuth.configureProviders([EmailAuthProvider()]);
   runApp(ChangeNotifierProvider(

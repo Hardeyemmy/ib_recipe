@@ -116,7 +116,7 @@ class ApplicationState extends ChangeNotifier {
 
   bool get isProfileComplete {
     final name = displayName;
-    return name != null && name.trim().isNotEmpty;
+    return name.trim().isNotEmpty;
   }
 
   // INIT

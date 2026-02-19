@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'app_state.dart';
+import 'checkout_screen.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
@@ -103,9 +104,10 @@ class CartPage extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Checkout coming soon 🚀"),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CheckoutPage(),
                               ),
                             );
                           },

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'app_state.dart';
+import 'profileedit_screen.dart';
+import 'cart_page.dart';
 import 'recipe_card.dart';
 import 'recipe.dart';
-import 'app_state.dart';
-import 'profile_screen.dart';
-import 'cart_page.dart';
 
 class RecipeHomeScreen extends StatelessWidget {
   const RecipeHomeScreen({super.key});
@@ -17,9 +17,9 @@ class RecipeHomeScreen extends StatelessWidget {
         int crossAxisCount;
 
         if (constraints.maxWidth < 600) {
-          crossAxisCount = 1; // 📱 Mobile
+          crossAxisCount = 2; // 📱 Mobile
         } else if (constraints.maxWidth < 1100) {
-          crossAxisCount = 2; // 📟 Tablet
+          crossAxisCount = 3; // 📟 Tablet
         } else {
           crossAxisCount = 3; // 🖥 Desktop
         }
@@ -36,8 +36,6 @@ class RecipeHomeScreen extends StatelessWidget {
       },
     );
   }
-
-  // ------------------ APP BAR ------------------
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
@@ -103,7 +101,7 @@ class RecipeHomeScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const ProfileScreen(),
+                builder: (_) => const EditProfileScreen(),
               ),
             );
           },
@@ -138,8 +136,6 @@ class RecipeHomeScreen extends StatelessWidget {
       ],
     );
   }
-
-  // ------------------ CART BUTTON ------------------
 
   Widget _buildCartButton(BuildContext context) {
     return Consumer<ApplicationState>(
@@ -192,8 +188,6 @@ class RecipeHomeScreen extends StatelessWidget {
       },
     );
   }
-
-  // ------------------ RESPONSIVE GRID ------------------
 
   Widget _buildRecipeGrid(int crossAxisCount) {
     return StreamBuilder<QuerySnapshot>(
