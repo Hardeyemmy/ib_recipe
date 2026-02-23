@@ -29,7 +29,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     double totalPrice = cartItems.fold(
       0,
-      (sum, item) => sum + (item.price * item.quantity),
+      (sumUp, item) => sumUp + (item.price * item.quantity),
     );
 
     return Scaffold(
@@ -97,13 +97,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   const SizedBox(height: 20),
 
                   /// PAYMENT METHOD
-                  const Text(
-                    "Payment Method",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
 
                   const Text(
                     "Payment Method",
@@ -186,64 +179,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Future<void> placeOrder(ApplicationState appState) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    if (addressController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter delivery address")),
-      );
-      return;
-    }
-
-    setState(() {
-      isPlacingOrder = true;
-    });
-
+  Future<void> placeOrder(appState) async {
     try {
-      double totalPrice = appState.cartItems.fold(
-        0,
-        (sum, item) => sum + (item.price * item.quantity),
-      );
+      print("Checkout button pressed");
 
-      List<Map<String, dynamic>> orderItems = appState.cartItems.map((item) {
-        return {
-          "name": item.name,
-          "price": item.price,
-          "quantity": item.quantity,
-        };
-      }).toList();
+      final user = FirebaseAuth.instance.currentUser;
+      print("Current user: ${user?.uid}");
 
-      await FirebaseFirestore.instance
+      if (user == null) {
+        print("User is NULL. Cannot place order.");
+        return;
+      }
+
+      final orderRef = FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
-          .collection("orders")
-          .add({
-        "items": orderItems,
-        "address": addressController.text.trim(),
-        "paymentMethod": selectedPayment,
-        "total": totalPrice,
+          .collection("orders");
+
+      print("Writing to path: users/${user.uid}/orders");
+
+      await orderRef.add({
         "status": "Pending",
-        "createdAt": Timestamp.now(),
+        "createdAt": FieldValue.serverTimestamp(),
       });
 
-      /// CLEAR CART AFTER SUCCESS
-      appState.clearCart();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Order placed successfully!")),
-      );
-
-      Navigator.pop(context);
+      print("Order successfully saved!");
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error placing order: $e")),
-      );
+      print("FULL ERROR: $e");
     }
-
-    setState(() {
-      isPlacingOrder = false;
-    });
   }
 }

@@ -148,7 +148,6 @@ class AdminRecipesTab extends StatelessWidget {
   }
 }
 
-// ================= ORDERS TAB =================
 class AdminOrdersTab extends StatelessWidget {
   const AdminOrdersTab({super.key});
 
@@ -156,15 +155,20 @@ class AdminOrdersTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('orders')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+          .collectionGroup('orders')
+          .snapshots(), // 🔥 remove orderBy for now
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
+        if (!snapshot.hasData) {
+          return const Center(child: Text("No data found."));
+        }
+
         final orders = snapshot.data!.docs;
+
+        print("Orders found: ${orders.length}");
 
         if (orders.isEmpty) {
           return const Center(child: Text("No orders yet."));
@@ -173,45 +177,20 @@ class AdminOrdersTab extends StatelessWidget {
         return ListView.builder(
           itemCount: orders.length,
           itemBuilder: (context, index) {
-            final order = orders[index];
-            final data = order.data() as Map<String, dynamic>;
+            final orderDoc = orders[index];
+            final data = orderDoc.data() as Map<String, dynamic>;
+
+            final userId = orderDoc.reference.parent.parent?.id ?? 'Unknown';
 
             return Card(
               margin: const EdgeInsets.all(10),
               child: ListTile(
-                title: Text(data['recipeName'] ?? ''),
+                title: Text("User: $userId"),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Customer: ${data['customerName'] ?? ''}"),
-                    Text("Phone: ${data['phone'] ?? ''}"),
-                    Text("Address: ${data['address'] ?? ''}"),
-                    Text("Quantity: ${data['quantity'] ?? ''}"),
+                    Text("Total: ₦${data['total'] ?? 0}"),
                     Text("Status: ${data['status'] ?? 'Pending'}"),
-                  ],
-                ),
-
-                // ORDER STATUS CONTROL
-                trailing: PopupMenuButton<String>(
-                  onSelected: (value) {
-                    FirebaseFirestore.instance
-                        .collection('orders')
-                        .doc(order.id)
-                        .update({'status': value});
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'Confirmed',
-                      child: Text('Confirm'),
-                    ),
-                    PopupMenuItem(
-                      value: 'Delivered',
-                      child: Text('Mark Delivered'),
-                    ),
-                    PopupMenuItem(
-                      value: 'Cancelled',
-                      child: Text('Cancel'),
-                    ),
                   ],
                 ),
               ),

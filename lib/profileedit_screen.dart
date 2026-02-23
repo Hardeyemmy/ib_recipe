@@ -16,7 +16,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _controller.text = context.read<ApplicationState>().displayName ?? '';
+    _controller.text = context.read<ApplicationState>().displayName;
   }
 
   Future<void> _save() async {
