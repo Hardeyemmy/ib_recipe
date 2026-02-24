@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'recipe.dart';
 import 'cart_item.dart';
 
 class ApplicationState extends ChangeNotifier {
@@ -146,25 +145,6 @@ class ApplicationState extends ChangeNotifier {
     });
   }
 
-  Future<void> addRecipesBatch(List<Recipe> recipes) async {
-    if (_user == null) return;
-
-    final batch = _firestore.batch();
-    final recipesRef = _firestore.collection('recipes');
-
-    for (final recipe in recipes) {
-      final docRef = recipesRef.doc();
-
-      batch.set(docRef, {
-        ...recipe.toMap(),
-        'createdBy': _user!.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-
-    await batch.commit();
-  }
-
   // PROFILE LISTENER
 
   void _listenToProfile(String uid) {
@@ -195,17 +175,18 @@ class ApplicationState extends ChangeNotifier {
   Future<void> _createProfileIfNotExists(User user) async {
     final ref = _firestore.collection('users').doc(user.uid);
 
-    try {
+    final doc = await ref.get();
+
+    if (!doc.exists) {
+      // 🔥 Only create if document does not exist
       await ref.set({
         'uid': user.uid,
         'email': user.email,
         'displayName':
             user.displayName ?? user.email?.split('@').first ?? 'User',
-        'role': 'user',
+        'role': 'user', // default role ONLY when creating first time
         'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)); // 🔥 THIS IS THE FIX
-    } catch (e) {
-      debugPrint('Profile creation skipped (offline): $e');
+      });
     }
   }
 
