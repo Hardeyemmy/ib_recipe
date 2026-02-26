@@ -156,23 +156,22 @@ class AdminOrdersTab extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collectionGroup('orders')
-          .snapshots(), // 🔥 remove orderBy for now
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (!snapshot.hasData) {
-          return const Center(child: Text("No data found."));
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text("No orders yet."));
         }
 
         final orders = snapshot.data!.docs;
-
-        print("Orders found: ${orders.length}");
-
-        if (orders.isEmpty) {
-          return const Center(child: Text("No orders yet."));
-        }
 
         return ListView.builder(
           itemCount: orders.length,
@@ -181,23 +180,84 @@ class AdminOrdersTab extends StatelessWidget {
             final data = orderDoc.data() as Map<String, dynamic>;
 
             final userId = orderDoc.reference.parent.parent?.id ?? 'Unknown';
+            final items = (data['items'] as List<dynamic>? ?? []);
 
             return Card(
               margin: const EdgeInsets.all(10),
-              child: ListTile(
+              child: ExpansionTile(
                 title: Text("User: $userId"),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Total: ₦${data['total'] ?? 0}"),
-                    Text("Status: ${data['status'] ?? 'Pending'}"),
-                  ],
-                ),
+                subtitle: Text(
+                    "Total: ₦${data['total'] ?? 0} | Status: ${data['status'] ?? 'Pending'}"),
+                children: [
+                  // Show each item in the order
+                  ...items.map((item) {
+                    final itemMap = item as Map<String, dynamic>;
+                    return ListTile(
+                      title: Text(itemMap['name'] ?? ''),
+                      subtitle: Text("Qty: ${itemMap['quantity'] ?? 0}"),
+                      trailing: Text("₦${itemMap['price'] ?? 0}"),
+                    );
+                  }),
+
+                  // Delivery address & payment
+                  ListTile(
+                    title: Text("Address: ${data['address'] ?? 'N/A'}"),
+                    subtitle:
+                        Text("Payment: ${data['paymentMethod'] ?? 'N/A'}"),
+                  ),
+
+                  // Status update buttons
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        'Pending',
+                        'Confirmed',
+                        'Delivered',
+                        'Cancelled'
+                      ].map((status) {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(userId)
+                                  .collection('orders')
+                                  .doc(orderDoc.id)
+                                  .update({'status': status});
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: statusColor(status),
+                            ),
+                            child: Text(status),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
               ),
             );
           },
         );
       },
     );
+  }
+
+  // Helper: color based on status
+  Color statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return Colors.blue;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
   }
 }

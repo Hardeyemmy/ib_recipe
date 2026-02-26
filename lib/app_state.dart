@@ -159,6 +159,7 @@ class ApplicationState extends ChangeNotifier {
         if (data != null) {
           _displayName = (data['displayName'] ?? 'User').toString();
           _role = data['role'] ?? _role;
+          print("ROLE LOADED: $_role");
         }
 
         notifyListeners();
@@ -175,18 +176,16 @@ class ApplicationState extends ChangeNotifier {
   Future<void> _createProfileIfNotExists(User user) async {
     final ref = _firestore.collection('users').doc(user.uid);
 
-    final doc = await ref.get();
-
-    if (!doc.exists) {
-      // 🔥 Only create if document does not exist
+    try {
       await ref.set({
         'uid': user.uid,
         'email': user.email,
         'displayName':
             user.displayName ?? user.email?.split('@').first ?? 'User',
-        'role': 'user', // default role ONLY when creating first time
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Profile creation skipped (offline): $e');
     }
   }
 

@@ -179,33 +179,88 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Future<void> placeOrder(appState) async {
+  Future<void> placeOrder(ApplicationState appState) async {
     try {
+      setState(() {
+        isPlacingOrder = true;
+      });
+
       print("Checkout button pressed");
 
       final user = FirebaseAuth.instance.currentUser;
-      print("Current user: ${user?.uid}");
 
       if (user == null) {
-        print("User is NULL. Cannot place order.");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("You must be logged in to place an order.")),
+        );
         return;
       }
 
-      final orderRef = FirebaseFirestore.instance
+      if (appState.cartItems.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Your cart is empty.")),
+        );
+        return;
+      }
+
+      if (addressController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter delivery address.")),
+        );
+        return;
+      }
+
+      // Calculate total
+      double totalPrice = appState.cartItems.fold(
+        0,
+        (sumUp, item) => sumUp + (item.price * item.quantity),
+      );
+
+      // Convert cart items to Firestore-friendly format
+      final orderItems = appState.cartItems.map((item) {
+        return {
+          "name": item.name,
+          "price": item.price,
+          "quantity": item.quantity,
+        };
+      }).toList();
+
+      print("Writing order for user: ${user.uid}");
+
+      await FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
-          .collection("orders");
-
-      print("Writing to path: users/${user.uid}/orders");
-
-      await orderRef.add({
+          .collection("orders")
+          .add({
+        "items": orderItems,
+        "address": addressController.text.trim(),
+        "paymentMethod": selectedPayment.name, // enum → string
+        "total": totalPrice,
         "status": "Pending",
         "createdAt": FieldValue.serverTimestamp(),
       });
 
       print("Order successfully saved!");
+
+      // OPTIONAL: Clear cart from app state
+      appState.clearCart();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Order placed successfully!")),
+      );
+
+      Navigator.pop(context);
     } catch (e) {
       print("FULL ERROR: $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to place order: $e")),
+      );
+    } finally {
+      setState(() {
+        isPlacingOrder = false;
+      });
     }
   }
 }
