@@ -6,34 +6,29 @@ import 'profileedit_screen.dart';
 import 'cart_page.dart';
 import 'recipe_card.dart';
 import 'recipe.dart';
+import 'responsive.dart';
 
 class RecipeHomeScreen extends StatelessWidget {
   const RecipeHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int crossAxisCount;
+    int crossAxisCount;
 
-        if (constraints.maxWidth < 600) {
-          crossAxisCount = 2; // 📱 Mobile
-        } else if (constraints.maxWidth < 1100) {
-          crossAxisCount = 3; // 📟 Tablet
-        } else {
-          crossAxisCount = 3; // 🖥 Desktop
-        }
+    if (Responsive.isMobile(context)) {
+      crossAxisCount = 2;
+    } else {
+      crossAxisCount = 3;
+    }
 
-        return Scaffold(
-          appBar: _buildAppBar(context),
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: _buildRecipeGrid(crossAxisCount),
-            ),
-          ),
-        );
-      },
+    return Scaffold(
+      appBar: _buildAppBar(context),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: _buildRecipeGrid(crossAxisCount),
+        ),
+      ),
     );
   }
 

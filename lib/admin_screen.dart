@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'menu_item_ad.dart';
 import 'edit_menu_ad.dart';
 import 'recipe_homescreen.dart';
+import 'responsive.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -16,30 +17,110 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
+    final isDesktop = Responsive.isDesktop(context);
+
+    final pages = [
       _buildAdminPanel(),
       const RecipeHomeScreen(),
     ];
 
     return Scaffold(
-      body: screens[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.admin_panel_settings),
-            label: 'Admin',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
+      appBar: isDesktop
+          ? null
+          : AppBar(
+              title: const Text("Admin Dashboard"),
+            ),
+
+      drawer: isDesktop ? null : _buildDrawer(),
+
+      body: Row(
+        children: [
+          // 💻 DESKTOP NAVIGATION RAIL
+          if (isDesktop)
+            NavigationRail(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              labelType: NavigationRailLabelType.all,
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.admin_panel_settings_outlined),
+                  selectedIcon: Icon(Icons.admin_panel_settings),
+                  label: Text("Admin"),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: Text("Home"),
+                ),
+              ],
+            ),
+
+          // MAIN CONTENT
+          Expanded(
+            child: pages[_selectedIndex],
           ),
         ],
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+      ),
+
+      // 📱 MOBILE BOTTOM NAV
+      bottomNavigationBar: isDesktop
+          ? null
+          : NavigationBar(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.admin_panel_settings),
+                  label: "Admin",
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.home),
+                  label: "Home",
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          const DrawerHeader(
+            child: Center(
+              child: Text(
+                "Admin Dashboard",
+                style: TextStyle(fontSize: 20),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.admin_panel_settings),
+            title: const Text("Admin"),
+            selected: _selectedIndex == 0,
+            onTap: () {
+              setState(() => _selectedIndex = 0);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.home),
+            title: const Text("Home"),
+            selected: _selectedIndex == 1,
+            onTap: () {
+              setState(() => _selectedIndex = 1);
+              Navigator.pop(context);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -150,6 +231,18 @@ class AdminRecipesTab extends StatelessWidget {
 
 class AdminOrdersTab extends StatelessWidget {
   const AdminOrdersTab({super.key});
+  String formatTimestamp(dynamic timestamp) {
+    if (timestamp == null) return "Unknown";
+
+    if (timestamp is Timestamp) {
+      final date = timestamp.toDate();
+
+      return "${date.day}/${date.month}/${date.year} "
+          "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+    }
+
+    return "Unknown";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,9 +278,10 @@ class AdminOrdersTab extends StatelessWidget {
             return Card(
               margin: const EdgeInsets.all(10),
               child: ExpansionTile(
-                title: Text("User: $userId"),
+                title: Text(data['displayName'] ?? "Unknown"),
                 subtitle: Text(
-                    "Total: ₦${data['total'] ?? 0} | Status: ${data['status'] ?? 'Pending'}"),
+                  "Total: ₦${data['total'] ?? 0} | Status: ${data['status'] ?? 'Pending'} | Time Of Order: ${formatTimestamp(data['createdAt']) ?? 'Unknown'}",
+                ),
                 children: [
                   // Show each item in the order
                   ...items.map((item) {
@@ -210,17 +304,15 @@ class AdminOrdersTab extends StatelessWidget {
                   Padding(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        'Pending',
-                        'Confirmed',
-                        'Delivered',
-                        'Cancelled'
-                      ].map((status) {
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: ElevatedButton(
+                        // Status Buttons
+                        ...['Pending', 'Confirmed', 'Delivered', 'Cancelled']
+                            .map((status) {
+                          return ElevatedButton(
                             onPressed: () {
                               FirebaseFirestore.instance
                                   .collection('users')
@@ -233,9 +325,48 @@ class AdminOrdersTab extends StatelessWidget {
                               backgroundColor: statusColor(status),
                             ),
                             child: Text(status),
+                          );
+                        }).toList(),
+
+                        // 🔥 DELETE BUTTON
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
                           ),
-                        );
-                      }).toList(),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text("Delete Order"),
+                                content: const Text(
+                                    "Are you sure you want to delete this order? This action cannot be undone."),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text("Cancel"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text("Delete"),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm == true) {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(userId)
+                                  .collection('orders')
+                                  .doc(orderDoc.id)
+                                  .delete();
+                            }
+                          },
+                          child: const Text("Delete"),
+                        ),
+                      ],
                     ),
                   ),
                 ],

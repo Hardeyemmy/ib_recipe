@@ -185,10 +185,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         isPlacingOrder = true;
       });
 
-      print("Checkout button pressed");
-
       final user = FirebaseAuth.instance.currentUser;
 
+      // 🔐 Authentication Check
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -197,6 +196,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         return;
       }
 
+      // 🛒 Cart Check
       if (appState.cartItems.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Your cart is empty.")),
@@ -204,6 +204,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         return;
       }
 
+      // 📍 Address Check
       if (addressController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please enter delivery address.")),
@@ -211,13 +212,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
         return;
       }
 
-      // Calculate total
+      // 💰 Calculate Total
       double totalPrice = appState.cartItems.fold(
         0,
         (sumUp, item) => sumUp + (item.price * item.quantity),
       );
 
-      // Convert cart items to Firestore-friendly format
+      // 🧾 Convert Cart Items
       final orderItems = appState.cartItems.map((item) {
         return {
           "name": item.name,
@@ -226,8 +227,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
         };
       }).toList();
 
-      print("Writing order for user: ${user.uid}");
+      // 🔥 GET USER PROFILE FROM FIRESTORE (Reliable Source)
+      final userDoc = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user.uid)
+          .get();
 
+      final userData = userDoc.data();
+
+      final displayName = userData?['displayName'] ?? '';
+      final email = userData?['email'] ?? user.email ?? '';
+
+      // 📝 SAVE ORDER
       await FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
@@ -235,15 +246,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
           .add({
         "items": orderItems,
         "address": addressController.text.trim(),
-        "paymentMethod": selectedPayment.name, // enum → string
+        "paymentMethod": selectedPayment.name,
         "total": totalPrice,
         "status": "Pending",
         "createdAt": FieldValue.serverTimestamp(),
+
+        // 🔥 Guaranteed profile data
+        "email": email,
+        "displayName": displayName,
+        "userId": user.uid,
       });
 
-      print("Order successfully saved!");
-
-      // OPTIONAL: Clear cart from app state
+      // 🧹 Clear Cart
       appState.clearCart();
 
       ScaffoldMessenger.of(context).showSnackBar(
