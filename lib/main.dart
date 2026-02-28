@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:ib_recipe/admin_screen.dart';
+import 'package:ib_recipe/recipe_details.dart';
+import 'package:ib_recipe/recipe_homescreen.dart';
 import 'package:provider/provider.dart';
 import 'package:ib_recipe/auth.dart';
 import 'firebase_options.dart';
@@ -28,6 +31,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => ApplicationState(),
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         title: 'Ib Recipe App',
         theme: ThemeData(
           useMaterial3: true,
@@ -35,7 +39,12 @@ class MyApp extends StatelessWidget {
             seedColor: Colors.green,
           ),
         ),
-        home: const AuthGate(),
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const AuthGate(),
+          '/dashboard': (context) => const AdminDashboard(),
+          '/home': (context) => const RecipeHomeScreen(),
+        },
       ),
     );
   }

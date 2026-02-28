@@ -8,8 +8,15 @@ import 'recipe_card.dart';
 import 'recipe.dart';
 import 'responsive.dart';
 
-class RecipeHomeScreen extends StatelessWidget {
+class RecipeHomeScreen extends StatefulWidget {
   const RecipeHomeScreen({super.key});
+
+  @override
+  State<RecipeHomeScreen> createState() => _RecipeHomeScreenState();
+}
+
+class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
+  String searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +39,10 @@ class RecipeHomeScreen extends StatelessWidget {
     );
   }
 
+  // ✅ MOVE THIS INSIDE
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
+      toolbarHeight: 110,
       elevation: 0,
       automaticallyImplyLeading: false,
       flexibleSpace: Container(
@@ -48,96 +57,70 @@ class RecipeHomeScreen extends StatelessWidget {
           ),
         ),
       ),
-      title: Row(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              'assets/ib_logo.jpg',
-              height: 38,
-              width: 38,
-              fit: BoxFit.cover,
-            ),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/ib_logo.jpg',
+                  height: 34,
+                  width: 34,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                "IB Recipes",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "IB Recipes",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Consumer<ApplicationState>(
-                  builder: (_, appState, __) => Text(
-                    "Welcome, ${appState.displayName}",
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 10),
+
+          // 🔍 SEARCH
+          Container(
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: TextField(
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: "Search recipes...",
+                hintStyle: TextStyle(color: Colors.white70),
+                prefixIcon: Icon(Icons.search, color: Colors.white),
+                border: InputBorder.none,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value.toLowerCase();
+                });
+              },
             ),
           ),
         ],
       ),
       actions: [
         _buildCartButton(context),
-        IconButton(
-          icon: const Icon(Icons.edit, color: Colors.white),
-          tooltip: "Edit Profile",
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const EditProfileScreen(),
-              ),
-            );
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.logout, color: Colors.white),
-          tooltip: 'Logout',
-          onPressed: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: const Text('Logout'),
-                content: const Text('Are you sure you want to logout?'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Logout'),
-                  ),
-                ],
-              ),
-            );
-
-            if (confirm == true) {
-              await context.read<ApplicationState>().signOut();
-            }
-          },
-        ),
       ],
     );
   }
 
+  // ✅ ALSO MOVE THIS INSIDE
   Widget _buildCartButton(BuildContext context) {
     return Consumer<ApplicationState>(
       builder: (context, appState, _) {
         int itemCount = appState.cartItems.fold(
           0,
-          (sum, item) => sum + item.quantity,
+          (sumUp, item) => sumUp + item.quantity,
         );
 
         return Stack(
@@ -163,10 +146,6 @@ class RecipeHomeScreen extends StatelessWidget {
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
                   child: Text(
                     itemCount.toString(),
                     style: const TextStyle(
@@ -174,7 +153,6 @@ class RecipeHomeScreen extends StatelessWidget {
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
@@ -184,36 +162,38 @@ class RecipeHomeScreen extends StatelessWidget {
     );
   }
 
+  // ✅ ALSO MOVE THIS INSIDE
   Widget _buildRecipeGrid(int crossAxisCount) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('recipes').snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.hasError) {
-          return Center(child: Text("Error: ${snapshot.error}"));
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("No recipes yet"));
-        }
-
-        final recipes = snapshot.data!.docs
+        final allRecipes = snapshot.data!.docs
             .map((doc) => Recipe.fromFirestore(doc))
             .toList();
 
+        final filteredRecipes = allRecipes.where((recipe) {
+          return recipe.name.toLowerCase().contains(searchQuery);
+        }).toList();
+
+        if (filteredRecipes.isEmpty) {
+          return const Center(child: Text("No recipes found"));
+        }
+
         return GridView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: recipes.length,
+          itemCount: filteredRecipes.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
             childAspectRatio: 0.85,
           ),
-          itemBuilder: (context, index) => RecipeCard(recipe: recipes[index]),
+          itemBuilder: (context, index) =>
+              RecipeCard(recipe: filteredRecipes[index]),
         );
       },
     );
