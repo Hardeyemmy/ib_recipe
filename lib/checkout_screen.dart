@@ -264,11 +264,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         const SnackBar(content: Text("Order placed successfully!")),
       );
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/home',
-        (route) => false,
-      );
+      Navigator.pop(context);
     } catch (e) {
       print("FULL ERROR: $e");
 
