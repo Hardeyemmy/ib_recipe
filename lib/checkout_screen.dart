@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'recipe_homescreen.dart';
 import 'app_state.dart';
 
 enum PaymentMethod {
@@ -145,37 +146,67 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         ),
                       ),
                       Text(
-                        "₦$totalPrice",
+                        "₦${appState.totalPrice.toStringAsFixed(2)}",
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green),
                       ),
                     ],
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  /// PLACE ORDER BUTTON
-                  ElevatedButton(
-                    onPressed:
-                        isPlacingOrder ? null : () => placeOrder(appState),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: isPlacingOrder
-                        ? const CircularProgressIndicator(
-                            color: Colors.white,
-                          )
-                        : const Text(
-                            "Place Order",
-                            style: TextStyle(fontSize: 16),
-                          ),
-                  ),
+                  )
                 ],
               ),
             ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              /// HOME BUTTON
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.home),
+                  label: const Text("Home"),
+                  onPressed: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RecipeHomeScreen(),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              /// PLACE ORDER BUTTON
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.shopping_cart_checkout),
+                  label: isPlacingOrder
+                      ? const Text("Processing...")
+                      : const Text("Place Order"),
+                  onPressed: isPlacingOrder ? null : () => placeOrder(appState),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

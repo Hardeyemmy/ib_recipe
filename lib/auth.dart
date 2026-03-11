@@ -4,8 +4,8 @@ import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
 import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'complete_profile.dart';
-import 'recipe_homescreen.dart';
 import 'admin_screen.dart';
+import 'main_nav.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -23,7 +23,7 @@ class AuthGate extends StatelessWidget {
     if (appState.isLoggedIn &&
         appState.isEmailVerified &&
         appState.isProfileComplete) {
-      return const RecipeHomeScreen();
+      return const MainNavigation();
     }
 
     // 🧾 Complete profile

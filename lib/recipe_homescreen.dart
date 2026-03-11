@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'app_state.dart';
-import 'profileedit_screen.dart';
 import 'cart_page.dart';
 import 'recipe_card.dart';
 import 'recipe.dart';
