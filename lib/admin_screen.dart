@@ -280,7 +280,7 @@ class AdminOrdersTab extends StatelessWidget {
               child: ExpansionTile(
                 title: Text(data['displayName'] ?? "Unknown"),
                 subtitle: Text(
-                  "Total: ₦${data['total'] ?? 0} | Status: ${data['status'] ?? 'Pending'} | Time Of Order: ${formatTimestamp(data['createdAt']) ?? 'Unknown'}",
+                  "Total: ₦${data['total'] ?? 0} | Status: ${data['status'] ?? 'Pending'} | Time Of Order: ${formatTimestamp(data['createdAt'])}",
                 ),
                 children: [
                   // Show each item in the order

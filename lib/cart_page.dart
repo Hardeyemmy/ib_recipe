@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'checkout_screen.dart';
+import 'recipe_homescreen.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
@@ -16,10 +17,49 @@ class CartPage extends StatelessWidget {
         backgroundColor: const Color(0xFF2E7D32),
       ),
       body: appState.cartItems.isEmpty
-          ? const Center(
-              child: Text(
-                "Your cart is empty",
-                style: TextStyle(fontSize: 18),
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 80,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Your cart is empty",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Looks like you haven't added any recipes yet.",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 30),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.home),
+                    label: const Text("Back to Recipes"),
+                    onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RecipeHomeScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             )
           : Column(

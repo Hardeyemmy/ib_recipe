@@ -6,6 +6,7 @@ import 'cart_page.dart';
 import 'recipe_card.dart';
 import 'recipe.dart';
 import 'responsive.dart';
+import 'profile_screen.dart';
 
 class RecipeHomeScreen extends StatefulWidget {
   const RecipeHomeScreen({super.key});
@@ -38,7 +39,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     );
   }
 
-  // ✅ MOVE THIS INSIDE
+  /// APP BAR
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       toolbarHeight: 110,
@@ -56,9 +57,12 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
           ),
         ),
       ),
+
+      /// TITLE AREA
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          /// LOGO + APP NAME
           Row(
             children: [
               ClipRRect(
@@ -81,9 +85,23 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
               ),
             ],
           ),
+
+          const SizedBox(height: 4),
+
+          /// WELCOME MESSAGE
+          Consumer<ApplicationState>(
+            builder: (_, appState, __) => Text(
+              "Welcome ${appState.displayName}",
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+
           const SizedBox(height: 10),
 
-          // 🔍 SEARCH
+          /// SEARCH BAR
           Container(
             height: 40,
             decoration: BoxDecoration(
@@ -107,13 +125,26 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
           ),
         ],
       ),
+
+      /// ACTIONS
       actions: [
         _buildCartButton(context),
+        IconButton(
+          icon: const Icon(Icons.person),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ProfileScreen(),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
 
-  // ✅ ALSO MOVE THIS INSIDE
+  /// CART BUTTON
   Widget _buildCartButton(BuildContext context) {
     return Consumer<ApplicationState>(
       builder: (context, appState, _) {
@@ -161,7 +192,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     );
   }
 
-  // ✅ ALSO MOVE THIS INSIDE
+  /// RECIPE GRID
   Widget _buildRecipeGrid(int crossAxisCount) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('recipes').snapshots(),
