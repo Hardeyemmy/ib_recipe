@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'recipe_homescreen.dart';
 import 'app_state.dart';
+import 'package:flutter_paystack_max/flutter_paystack_max.dart';
 
 enum PaymentMethod {
   cashOnDelivery,
@@ -22,6 +23,65 @@ class _CheckoutPageState extends State<CheckoutPage> {
   PaymentMethod selectedPayment = PaymentMethod.cashOnDelivery;
 
   bool isPlacingOrder = false;
+
+  // 1. Use PaystackPlugin instead of PaystackPayment
+
+  Future<bool> payWithCard(BuildContext context, double amount) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // 1. Create the Transaction Request (as per documentation)
+    final request = PaystackTransactionRequest(
+      reference: 'REF_${DateTime.now().millisecondsSinceEpoch}',
+      secretKey:
+          "sk_test_4831664b70082b74c3630c778f7c1130bd283ed7", // ⚠️ Replace with your Secret Key
+      email: user?.email ?? "customer@email.com",
+      amount: (amount * 100).toDouble(), // Convert Naira to Kobo
+      currency: PaystackCurrency.ngn,
+      channel: [
+        PaystackPaymentChannel.mobileMoney,
+        PaystackPaymentChannel.card,
+        PaystackPaymentChannel.ussd,
+        PaystackPaymentChannel.bankTransfer,
+        PaystackPaymentChannel.bank,
+        PaystackPaymentChannel.qr,
+      ],
+    );
+
+    // 2. Initialize the transaction
+    final initializedTransaction =
+        await PaymentService.initializeTransaction(request);
+
+    if (!initializedTransaction.status) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.red,
+        content: Text(initializedTransaction.message),
+      ));
+      return false;
+    }
+
+    // 3. Open the payment modal
+    try {
+      return await PaymentService.showPaymentModal(
+        context,
+        transaction: initializedTransaction,
+        // This URL must be allowed in your Paystack dashboard
+        callbackUrl: 'https://standard.paystack.co/close',
+      ).then((_) async {
+        // 4. Verify the transaction status
+        final response = await PaymentService.verifyTransaction(
+          paystackSecretKey:
+              'sk_test_4831664b70082b74c3630c778f7c1130bd283ed7', // ⚠️ Use Secret Key here too
+          initializedTransaction.data?.reference ?? request.reference,
+        );
+
+        // Check if Paystack confirms the money actually moved
+        return response.status && response.data?.status == 'success';
+      });
+    } catch (e) {
+      debugPrint("Paystack Error: $e");
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +257,70 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   label: isPlacingOrder
                       ? const Text("Processing...")
                       : const Text("Place Order"),
-                  onPressed: isPlacingOrder ? null : () => placeOrder(appState),
+                  onPressed: isPlacingOrder
+                      ? null
+                      : () async {
+                          final appState = Provider.of<ApplicationState>(
+                              context,
+                              listen: false);
+
+                          // 🔐 Auth check
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      "You must be logged in to place an order.")),
+                            );
+                            return;
+                          }
+
+                          // 🛒 Cart check
+                          if (appState.cartItems.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Your cart is empty.")),
+                            );
+                            return;
+                          }
+
+                          // 📍 Address check
+                          if (addressController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text("Please enter delivery address.")),
+                            );
+                            return;
+                          }
+
+                          setState(() {
+                            isPlacingOrder = true;
+                          });
+
+                          try {
+                            /// 💳 CARD PAYMENT FLOW
+                            if (selectedPayment == PaymentMethod.cardPayment) {
+                              bool paymentSuccess = await payWithCard(
+                                  context, appState.totalPrice);
+
+                              if (!paymentSuccess) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text("Payment not completed")),
+                                );
+                                return; // ❌ STOP (no order saved)
+                              }
+                            }
+
+                            /// ✅ ONLY SAVE ORDER AFTER SUCCESS
+                            await placeOrder(appState);
+                          } finally {
+                            setState(() {
+                              isPlacingOrder = false;
+                            });
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -278,6 +401,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         "items": orderItems,
         "address": addressController.text.trim(),
         "paymentMethod": selectedPayment.name,
+        "paymentStatus": selectedPayment == PaymentMethod.cardPayment
+            ? "Paid"
+            : "Cash on Delivery",
         "total": totalPrice,
         "status": "Pending",
         "createdAt": FieldValue.serverTimestamp(),

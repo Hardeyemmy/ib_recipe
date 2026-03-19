@@ -7,9 +7,15 @@ import 'package:provider/provider.dart';
 import 'package:ib_recipe/auth.dart';
 import 'firebase_options.dart';
 import 'app_state.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_web/webview_flutter_web.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (identical(0, 0.0)) {
+    WebViewPlatform.instance = WebWebViewPlatform();
+  }
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
