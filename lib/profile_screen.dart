@@ -44,9 +44,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout(BuildContext context) async {
+    // 1. Sign out from Firebase
     await FirebaseAuth.instance.signOut();
-    const AuthGate();
+
+    // 2. CRITICAL: Check if the widget is still "alive" before navigating
+    if (!context.mounted) return;
+
+    // 3. Wipe the navigation history and move to the AuthGate/Login screen
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const AuthGate()),
+      (route) =>
+          false, // This removes all previous screens from the "back" button
+    );
   }
 
   @override
@@ -95,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.logout),
                 label: const Text("Logout"),
-                onPressed: logout,
+                onPressed: () => logout(context),
               ),
             ),
           ],
