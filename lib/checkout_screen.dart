@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'recipe_homescreen.dart';
 import 'app_state.dart';
+import 'package:url_launcher/url_launcher.dart'; // Changed to standard url_launcher
 import 'package:flutter_paystack_max/flutter_paystack_max.dart';
+import 'package:flutter/foundation.dart'; // Needed for kIsWeb
 
 enum PaymentMethod {
   cashOnDelivery,
@@ -21,309 +23,237 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController addressController = TextEditingController();
   PaymentMethod selectedPayment = PaymentMethod.cashOnDelivery;
-
   bool isPlacingOrder = false;
 
-  // 1. Use PaystackPlugin instead of PaystackPayment
+  // --- START PAYSTACK INTEGRATION ---
 
   Future<bool> payWithCard(BuildContext context, double amount) async {
     final user = FirebaseAuth.instance.currentUser;
+    const String mySecretKey =
+        "sk_test_4831664b70082b74c3630c778f7c1130bd283ed7";
 
-    // 1. Create the Transaction Request (as per documentation)
     final request = PaystackTransactionRequest(
       reference: 'REF_${DateTime.now().millisecondsSinceEpoch}',
-      secretKey:
-          "sk_test_4831664b70082b74c3630c778f7c1130bd283ed7", // ⚠️ Replace with your Secret Key
+      secretKey: mySecretKey,
       email: user?.email ?? "customer@email.com",
-      amount: (amount * 100).toDouble(), // Convert Naira to Kobo
+      amount: (amount * 100).toDouble(), // Paystack expects integers (Kobo)
       currency: PaystackCurrency.ngn,
       channel: [
-        PaystackPaymentChannel.mobileMoney,
         PaystackPaymentChannel.card,
         PaystackPaymentChannel.ussd,
         PaystackPaymentChannel.bankTransfer,
-        PaystackPaymentChannel.bank,
-        PaystackPaymentChannel.qr,
       ],
     );
 
-    // 2. Initialize the transaction
-    final initializedTransaction =
-        await PaymentService.initializeTransaction(request);
+    final initialized = await PaymentService.initializeTransaction(request);
 
-    if (!initializedTransaction.status) {
+    if (!initialized.status) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: Colors.red,
-        content: Text(initializedTransaction.message),
+        content: Text(initialized.message),
       ));
       return false;
     }
 
-    // 3. Open the payment modal
-    try {
-      return await PaymentService.showPaymentModal(
-        context,
-        transaction: initializedTransaction,
-        // This URL must be allowed in your Paystack dashboard
-        callbackUrl: 'https://standard.paystack.co/close',
-      ).then((_) async {
-        // 4. Verify the transaction status
-        final response = await PaymentService.verifyTransaction(
-          paystackSecretKey:
-              'sk_test_4831664b70082b74c3630c778f7c1130bd283ed7', // ⚠️ Use Secret Key here too
-          initializedTransaction.data?.reference ?? request.reference,
-        );
+    // WEB SPECIFIC FLOW
+    if (kIsWeb) {
+      final url = Uri.parse(initialized.data?.authorizationUrl ?? "");
+      if (await canLaunchUrl(url)) {
+        // Open Paystack in a new tab
+        await launchUrl(url, mode: LaunchMode.externalApplication);
 
-        // Check if Paystack confirms the money actually moved
-        return response.status && response.data?.status == 'success';
-      });
-    } catch (e) {
-      debugPrint("Paystack Error: $e");
+        // Show a dialog to the user to verify once they return
+        return await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text("Confirm Payment"),
+                content: const Text(
+                    "Once you have finished the payment in the new tab, click 'Verify' to complete your order."),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Cancel"),
+                  ),
+                  // ... inside your showDialog builder ...
+                  ElevatedButton(
+                    onPressed: () async {
+                      // 1. Perform the verification
+                      final response = await PaymentService.verifyTransaction(
+                        paystackSecretKey: mySecretKey,
+                        initialized.data?.reference ?? request.reference,
+                      );
+
+                      bool success =
+                          response.status && response.data?.status == 'success';
+
+                      // 2. CRITICAL FIX: Check if the widget is still in the tree
+                      // before calling Navigator or using context.
+                      if (!mounted) return;
+
+                      // 3. Now it is safe to close the dialog
+                      Navigator.of(context).pop(success);
+                    },
+                    child: const Text("Verify Payment"),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+      }
       return false;
     }
+
+    // MOBILE FLOW (WebView Modal)
+    else {
+      return await PaymentService.showPaymentModal(
+        context,
+        transaction: initialized,
+        callbackUrl: 'https://standard.paystack.co/close',
+      ).then((_) async {
+        final response = await PaymentService.verifyTransaction(
+          paystackSecretKey: 'sk_test_4831664b70082b74c3630c778f7c1130bd283ed7',
+          initialized.data?.reference ?? request.reference,
+        );
+        return response.status && response.data?.status == 'success';
+      });
+    }
   }
+
+  // --- END PAYSTACK INTEGRATION ---
 
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<ApplicationState>(context);
     final cartItems = appState.cartItems;
 
-    double totalPrice = cartItems.fold(
-      0,
-      (sumUp, item) => sumUp + (item.price * item.quantity),
-    );
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Checkout"),
-      ),
+      appBar: AppBar(title: const Text("Checkout")),
       body: cartItems.isEmpty
           ? const Center(
-              child: Text(
-                "Your cart is empty",
-                style: TextStyle(fontSize: 18),
-              ),
-            )
+              child: Text("Your cart is empty", style: TextStyle(fontSize: 18)))
           : Padding(
               padding: const EdgeInsets.all(16),
               child: ListView(
                 children: [
-                  /// ORDER SUMMARY
-                  const Text(
-                    "Order Summary",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text("Order Summary",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-
-                  Column(
-                    children: cartItems.map((item) {
-                      return Card(
-                        child: ListTile(
-                          title: Text(item.name),
-                          subtitle: Text("Qty: ${item.quantity}"),
-                          trailing: Text(
-                            "₦${item.price * item.quantity}",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
+                  ...cartItems
+                      .map((item) => Card(
+                            child: ListTile(
+                              title: Text(item.name),
+                              subtitle: Text("Qty: ${item.quantity}"),
+                              trailing: Text("₦${item.price * item.quantity}",
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ))
+                      .toList(),
                   const SizedBox(height: 20),
-
-                  /// DELIVERY ADDRESS
-                  const Text(
-                    "Delivery Address",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text("Delivery Address",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-
                   TextField(
                     controller: addressController,
                     decoration: InputDecoration(
                       hintText: "Enter delivery address",
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  /// PAYMENT METHOD
-
-                  const Text(
-                    "Payment Method",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
+                  const Text("Payment Method",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-
-                  RadioGroup<PaymentMethod>(
-                    groupValue: selectedPayment,
-                    onChanged: (PaymentMethod? value) {
-                      if (value != null) {
-                        setState(() {
-                          selectedPayment = value;
-                        });
-                      }
-                    },
-                    child: const Column(
-                      children: [
-                        RadioListTile<PaymentMethod>(
-                          value: PaymentMethod.cashOnDelivery,
-                          title: Text("Cash on Delivery"),
-                        ),
-                        RadioListTile<PaymentMethod>(
-                          value: PaymentMethod.cardPayment,
-                          title: Text("Card Payment"),
-                        ),
-                      ],
+                  ListTile(
+                    title: const Text("Cash on Delivery"),
+                    leading: Radio<PaymentMethod>(
+                      value: PaymentMethod.cashOnDelivery,
+                      groupValue: selectedPayment,
+                      onChanged: (val) =>
+                          setState(() => selectedPayment = val!),
                     ),
                   ),
-
-                  const SizedBox(height: 20),
-
-                  /// TOTAL
+                  ListTile(
+                    title: const Text("Card Payment"),
+                    leading: Radio<PaymentMethod>(
+                      value: PaymentMethod.cardPayment,
+                      groupValue: selectedPayment,
+                      onChanged: (val) =>
+                          setState(() => selectedPayment = val!),
+                    ),
+                  ),
+                  const Divider(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Total",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        "₦${appState.totalPrice.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green),
-                      ),
+                      const Text("Total",
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text("₦${appState.totalPrice.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green)),
                     ],
                   )
                 ],
               ),
             ),
       bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 6,
-              ),
-            ],
-          ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
           child: Row(
             children: [
-              /// HOME BUTTON
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.home),
                   label: const Text("Home"),
-                  onPressed: () {
-                    Navigator.pushAndRemoveUntil(
+                  onPressed: () => Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const RecipeHomeScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  },
+                          builder: (_) => const RecipeHomeScreen()),
+                      (route) => false),
                 ),
               ),
-
               const SizedBox(width: 12),
-
-              /// PLACE ORDER BUTTON
               Expanded(
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.shopping_cart_checkout),
-                  label: isPlacingOrder
-                      ? const Text("Processing...")
-                      : const Text("Place Order"),
+                  label: Text(isPlacingOrder ? "Processing..." : "Place Order"),
                   onPressed: isPlacingOrder
                       ? null
                       : () async {
-                          final appState = Provider.of<ApplicationState>(
-                              context,
-                              listen: false);
-
-                          // 🔐 Auth check
-                          final user = FirebaseAuth.instance.currentUser;
-                          if (user == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      "You must be logged in to place an order.")),
-                            );
-                            return;
-                          }
-
-                          // 🛒 Cart check
-                          if (appState.cartItems.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("Your cart is empty.")),
-                            );
-                            return;
-                          }
-
-                          // 📍 Address check
                           if (addressController.text.trim().isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text("Please enter delivery address.")),
-                            );
+                                const SnackBar(
+                                    content: Text("Enter an address")));
                             return;
                           }
 
-                          setState(() {
-                            isPlacingOrder = true;
-                          });
+                          setState(() => isPlacingOrder = true);
 
                           try {
-                            /// 💳 CARD PAYMENT FLOW
                             if (selectedPayment == PaymentMethod.cardPayment) {
-                              bool paymentSuccess = await payWithCard(
+                              bool success = await payWithCard(
                                   context, appState.totalPrice);
-
-                              if (!paymentSuccess) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text("Payment not completed")),
-                                );
-                                return; // ❌ STOP (no order saved)
+                              if (!success) {
+                                setState(() => isPlacingOrder = false);
+                                return;
                               }
                             }
-
-                            /// ✅ ONLY SAVE ORDER AFTER SUCCESS
                             await placeOrder(appState);
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Error: $e")));
                           } finally {
-                            setState(() {
-                              isPlacingOrder = false;
-                            });
+                            setState(() => isPlacingOrder = false);
                           }
                         },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
                 ),
               ),
             ],
@@ -334,104 +264,40 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> placeOrder(ApplicationState appState) async {
-    try {
-      setState(() {
-        isPlacingOrder = true;
-      });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-      final user = FirebaseAuth.instance.currentUser;
+    final userDoc = await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user.uid)
+        .get();
+    final userData = userDoc.data();
 
-      // 🔐 Authentication Check
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("You must be logged in to place an order.")),
-        );
-        return;
-      }
+    await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user.uid)
+        .collection("orders")
+        .add({
+      "items": appState.cartItems
+          .map(
+              (e) => {"name": e.name, "price": e.price, "quantity": e.quantity})
+          .toList(),
+      "address": addressController.text.trim(),
+      "paymentMethod": selectedPayment.name,
+      "paymentStatus": selectedPayment == PaymentMethod.cardPayment
+          ? "Paid"
+          : "Cash on Delivery",
+      "total": appState.totalPrice,
+      "status": "Pending",
+      "createdAt": FieldValue.serverTimestamp(),
+      "userId": user.uid,
+      "email": userData?['email'] ?? user.email,
+      "displayName": userData?['displayName'] ?? '',
+    });
 
-      // 🛒 Cart Check
-      if (appState.cartItems.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Your cart is empty.")),
-        );
-        return;
-      }
-
-      // 📍 Address Check
-      if (addressController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please enter delivery address.")),
-        );
-        return;
-      }
-
-      // 💰 Calculate Total
-      double totalPrice = appState.cartItems.fold(
-        0,
-        (sumUp, item) => sumUp + (item.price * item.quantity),
-      );
-
-      // 🧾 Convert Cart Items
-      final orderItems = appState.cartItems.map((item) {
-        return {
-          "name": item.name,
-          "price": item.price,
-          "quantity": item.quantity,
-        };
-      }).toList();
-
-      // 🔥 GET USER PROFILE FROM FIRESTORE (Reliable Source)
-      final userDoc = await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .get();
-
-      final userData = userDoc.data();
-
-      final displayName = userData?['displayName'] ?? '';
-      final email = userData?['email'] ?? user.email ?? '';
-
-      // 📝 SAVE ORDER
-      await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .collection("orders")
-          .add({
-        "items": orderItems,
-        "address": addressController.text.trim(),
-        "paymentMethod": selectedPayment.name,
-        "paymentStatus": selectedPayment == PaymentMethod.cardPayment
-            ? "Paid"
-            : "Cash on Delivery",
-        "total": totalPrice,
-        "status": "Pending",
-        "createdAt": FieldValue.serverTimestamp(),
-
-        // 🔥 Guaranteed profile data
-        "email": email,
-        "displayName": displayName,
-        "userId": user.uid,
-      });
-
-      // 🧹 Clear Cart
-      appState.clearCart();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Order placed successfully!")),
-      );
-
-      Navigator.pop(context);
-    } catch (e) {
-      print("FULL ERROR: $e");
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to place order: $e")),
-      );
-    } finally {
-      setState(() {
-        isPlacingOrder = false;
-      });
-    }
+    appState.clearCart();
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Order placed successfully!")));
+    Navigator.pop(context);
   }
 }

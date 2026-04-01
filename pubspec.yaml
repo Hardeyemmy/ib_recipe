@@ -48,6 +48,7 @@ dependencies:
   flutter_paystack_max: ^1.0.3
   webview_flutter_web: ^0.2.3+4
   webview_flutter: ^4.13.1
+  url_launcher: ^6.3.2
   
 
 dev_dependencies:
