@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'menu_item_ad.dart';
-import 'edit_menu_ad.dart';
-import 'recipe_homescreen.dart';
-import 'responsive.dart';
+import '/menu_item_ad.dart';
+import '/edit_menu_ad.dart';
+import './recipe_homescreen.dart';
+import '/responsive.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -231,24 +231,37 @@ class AdminRecipesTab extends StatelessWidget {
 
 class AdminOrdersTab extends StatelessWidget {
   const AdminOrdersTab({super.key});
+
   String formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return "Unknown";
-
     if (timestamp is Timestamp) {
       final date = timestamp.toDate();
-
       return "${date.day}/${date.month}/${date.year} "
           "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
     }
-
     return "Unknown";
+  }
+
+  // Helper to define status colors
+  Color statusColor(String status) {
+    switch (status) {
+      case 'Confirmed':
+        return Colors.blue;
+      case 'Delivered':
+        return Colors.green;
+      case 'Cancelled':
+        return Colors.red;
+      default:
+        return Colors.orange; // Pending
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
+      // 1. Pointing to the new GLOBAL collection for better performance
       stream: FirebaseFirestore.instance
-          .collectionGroup('orders')
+          .collection('all_orders')
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -272,18 +285,19 @@ class AdminOrdersTab extends StatelessWidget {
             final orderDoc = orders[index];
             final data = orderDoc.data() as Map<String, dynamic>;
 
-            final userId = orderDoc.reference.parent.parent?.id ?? 'Unknown';
+            // We now get userId directly from the document data
+            final userId = data['userId'] ?? 'Unknown';
+            final orderId = data['orderId'] ?? orderDoc.id;
             final items = (data['items'] as List<dynamic>? ?? []);
 
             return Card(
               margin: const EdgeInsets.all(10),
               child: ExpansionTile(
-                title: Text(data['displayName'] ?? "Unknown"),
+                title: Text(data['displayName'] ?? "Unknown Customer"),
                 subtitle: Text(
-                  "Total: ₦${data['total'] ?? 0} | Status: ${data['status'] ?? 'Pending'} | Time Of Order: ${formatTimestamp(data['createdAt'])}",
+                  "Total: ₦${data['total'] ?? 0} | Status: ${data['status'] ?? 'Pending'}\nOrdered: ${formatTimestamp(data['createdAt'])}",
                 ),
                 children: [
-                  // Show each item in the order
                   ...items.map((item) {
                     final itemMap = item as Map<String, dynamic>;
                     return ListTile(
@@ -292,15 +306,11 @@ class AdminOrdersTab extends StatelessWidget {
                       trailing: Text("₦${itemMap['price'] ?? 0}"),
                     );
                   }),
-
-                  // Delivery address & payment
                   ListTile(
                     title: Text("Address: ${data['address'] ?? 'N/A'}"),
-                    subtitle:
-                        Text("Payment: ${data['paymentMethod'] ?? 'N/A'}"),
+                    subtitle: Text(
+                        "Payment: ${data['paymentMethod'] ?? 'N/A'} (${data['paymentStatus'] ?? ''})"),
                   ),
-
-                  // Status update buttons
                   Padding(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -309,62 +319,80 @@ class AdminOrdersTab extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        // Status Buttons
+                        // Status Update Buttons
                         ...['Pending', 'Confirmed', 'Delivered', 'Cancelled']
                             .map((status) {
                           return ElevatedButton(
-                            onPressed: () {
-                              FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(userId)
-                                  .collection('orders')
-                                  .doc(orderDoc.id)
-                                  .update({'status': status});
+                            onPressed: () async {
+                              WriteBatch batch =
+                                  FirebaseFirestore.instance.batch();
+
+                              // Update Global Order
+                              batch.update(
+                                  FirebaseFirestore.instance
+                                      .collection('all_orders')
+                                      .doc(orderId),
+                                  {'status': status});
+
+                              // Update User's specific order copy
+                              batch.update(
+                                  FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(userId)
+                                      .collection('orders')
+                                      .doc(orderId),
+                                  {'status': status});
+
+                              await batch.commit();
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: statusColor(status),
-                            ),
-                            child: Text(status),
+                                backgroundColor: statusColor(status)),
+                            child: Text(status,
+                                style: const TextStyle(color: Colors.white)),
                           );
-                        }).toList(),
+                        }),
 
-                        // 🔥 DELETE BUTTON
+                        // DELETE BUTTON
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                          ),
+                              backgroundColor: Colors.black),
                           onPressed: () async {
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text("Delete Order"),
                                 content: const Text(
-                                    "Are you sure you want to delete this order? This action cannot be undone."),
+                                    "Delete from both Admin and User records?"),
                                 actions: [
                                   TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text("Cancel"),
-                                  ),
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text("Cancel")),
                                   TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text("Delete"),
-                                  ),
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text("Delete")),
                                 ],
                               ),
                             );
 
                             if (confirm == true) {
-                              await FirebaseFirestore.instance
+                              WriteBatch batch =
+                                  FirebaseFirestore.instance.batch();
+                              // Delete from both locations
+                              batch.delete(FirebaseFirestore.instance
+                                  .collection('all_orders')
+                                  .doc(orderId));
+                              batch.delete(FirebaseFirestore.instance
                                   .collection('users')
                                   .doc(userId)
                                   .collection('orders')
-                                  .doc(orderDoc.id)
-                                  .delete();
+                                  .doc(orderId));
+                              await batch.commit();
                             }
                           },
-                          child: const Text("Delete"),
+                          child: const Text("Delete",
+                              style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -377,18 +405,18 @@ class AdminOrdersTab extends StatelessWidget {
       },
     );
   }
+}
 
-  // Helper: color based on status
-  Color statusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return Colors.blue;
-      case 'delivered':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.orange;
-    }
+// Helper: color based on status
+Color statusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'confirmed':
+      return Colors.blue;
+    case 'delivered':
+      return Colors.green;
+    case 'cancelled':
+      return Colors.red;
+    default:
+      return Colors.orange;
   }
 }

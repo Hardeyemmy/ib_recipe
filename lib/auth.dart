@@ -4,7 +4,7 @@ import 'package:firebase_ui_auth/firebase_ui_auth.dart' as ui;
 import 'package:provider/provider.dart';
 import 'app_state.dart';
 import 'complete_profile.dart';
-import 'admin_screen.dart';
+import './screens/admin_screen.dart';
 import 'main_nav.dart';
 
 class AuthGate extends StatelessWidget {
