@@ -271,52 +271,63 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final String orderId = 'ORD_${DateTime.now().millisecondsSinceEpoch}';
-    final userDoc = await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user.uid)
-        .get();
-    final userData = userDoc.data();
+    try {
+      final String orderId = 'ORD_${DateTime.now().millisecondsSinceEpoch}';
+      final userDoc = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user.uid)
+          .get();
+      final userData = userDoc.data();
 
-    final Map<String, dynamic> orderData = {
-      "orderId": orderId,
-      "items": appState.cartItems
-          .map(
-              (e) => {"name": e.name, "price": e.price, "quantity": e.quantity})
-          .toList(),
-      "address": addressController.text.trim(),
-      "paymentMethod": isCardPayment ? "cardPayment" : "cashOnDelivery",
-      "paymentStatus": isCardPayment ? "Paid" : "Pending (COD)",
-      "total": appState.totalPrice,
-      "status": "Pending",
-      "createdAt": FieldValue.serverTimestamp(),
-      "userId": user.uid,
-      "email": userData?['email'] ?? user.email,
-      "displayName": userData?['displayName'] ?? 'Customer',
-    };
+      final Map<String, dynamic> orderData = {
+        "orderId": orderId,
+        "items": appState.cartItems
+            .map((e) =>
+                {"name": e.name, "price": e.price, "quantity": e.quantity})
+            .toList(),
+        "address": addressController.text.trim(),
+        "paymentMethod": isCardPayment ? "cardPayment" : "cashOnDelivery",
+        "paymentStatus": isCardPayment ? "Paid" : "Pending (COD)",
+        "total": appState.totalPrice,
+        "status": "Pending",
+        "createdAt": FieldValue.serverTimestamp(),
+        "userId": user.uid,
+        "email": userData?['email'] ?? user.email,
+        "displayName": userData?['displayName'] ?? 'Customer',
+      };
 
-    WriteBatch batch = FirebaseFirestore.instance.batch();
-    batch.set(FirebaseFirestore.instance.collection("all_orders").doc(orderId),
-        orderData);
-    batch.set(
-        FirebaseFirestore.instance
-            .collection("users")
-            .doc(user.uid)
-            .collection("orders")
-            .doc(orderId),
-        orderData);
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+      batch.set(
+          FirebaseFirestore.instance.collection("all_orders").doc(orderId),
+          orderData);
+      batch.set(
+          FirebaseFirestore.instance
+              .collection("users")
+              .doc(user.uid)
+              .collection("orders")
+              .doc(orderId),
+          orderData);
 
-    await batch.commit();
-    appState.clearCart();
+      await batch.commit();
+      appState.clearCart();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Order placed successfully!"),
-          backgroundColor: Colors.green));
-      Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const RecipeHomeScreen()),
-          (route) => false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Order placed successfully!"),
+            backgroundColor: Colors.green));
+        Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const RecipeHomeScreen()),
+            (route) => false);
+      }
+    } catch (e) {
+      debugPrint("🛑 FIRESTORE ERROR: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text("Database Error: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 }

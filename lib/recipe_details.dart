@@ -6,7 +6,7 @@ import 'cart_item.dart';
 import 'cart_page.dart';
 
 class RecipeDetailsScreen extends StatefulWidget {
-  RecipeDetailsScreen({required this.recipe, super.key});
+  const RecipeDetailsScreen({required this.recipe, super.key});
 
   final Recipe recipe;
 
