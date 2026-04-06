@@ -33,24 +33,20 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ApplicationState(),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Ib Recipe App',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.green,
-          ),
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Ib Recipe App',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.green,
         ),
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const AuthGate(),
-          '/dashboard': (context) => const AdminDashboard(),
-          '/home': (context) => const RecipeHomeScreen(),
-        },
       ),
+      home: const AuthGate(),
+      routes: {
+        '/dashboard': (context) => const AdminDashboard(),
+        '/home': (context) => const RecipeHomeScreen(),
+      },
     );
   }
 }

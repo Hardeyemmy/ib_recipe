@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import './recipe_homescreen.dart';
 import '../app_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_paystack_max/flutter_paystack_max.dart';
@@ -21,11 +20,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController addressController = TextEditingController();
   PaymentMethod selectedPayment = PaymentMethod.cashOnDelivery;
   bool isPlacingOrder = false;
+  bool _orderPlaced = false; // Prevent duplicate order placement
   final String mySecretKey = "sk_test_4831664b70082b74c3630c778f7c1130bd283ed7";
+
+  @override
+  void initState() {
+    super.initState();
+    // Reset order placed flag when entering checkout
+    _orderPlaced = false;
+  }
 
   // --- PAYSTACK INTEGRATION ---
   Future<bool> payWithCard(
       BuildContext context, ApplicationState appState) async {
+    print("💳 payWithCard called");
     final user = FirebaseAuth.instance.currentUser;
 
     // FIX 1: Guarantee the Email is never null
@@ -102,12 +110,36 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             "Verification Response - Status: ${response.status}, Message: ${response.message}, Data Status: ${response.data?.status}");
 
                         bool success = response.status &&
-                            (response.data?.status == 'success');
+                            (response.data?.status == 'success' ||
+                                response.data?.status ==
+                                    PaystackTransactionStatus.success);
+
+                        debugPrint("Success check result: $success");
+                        debugPrint(
+                            "response.data?.status: ${response.data?.status}");
+                        debugPrint(
+                            "response.data?.status type: ${response.data?.status.runtimeType}");
+                        debugPrint(
+                            "PaystackTransactionStatus.success: ${PaystackTransactionStatus.success}");
+                        debugPrint(
+                            "String 'success' comparison: ${response.data?.status == 'success'}");
+                        debugPrint(
+                            "Enum comparison: ${response.data?.status == PaystackTransactionStatus.success}");
 
                         if (!mounted) return;
                         if (success) {
-                          await placeOrder(appState, isCardPayment: true);
-                          Navigator.pop(context, true);
+                          print(
+                              "✅ Payment verification successful, calling placeOrder");
+
+                          // Prevent duplicate order placement
+                          if (!_orderPlaced) {
+                            await placeOrder(appState, isCardPayment: true);
+                          } else {
+                            print(
+                                "⚠️ Order already placed, skipping placeOrder call");
+                          }
+
+                          // Don't auto-pop - let user tap back button
                         } else {
                           String errorMessage =
                               "Payment not verified. Try again after paying.";
@@ -144,8 +176,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
           debugPrint(
               "Mobile Verification Response - Status: ${response.status}, Message: ${response.message}, Data Status: ${response.data?.status}");
 
-          if (response.status && response.data?.status == 'success') {
-            await placeOrder(appState, isCardPayment: true);
+          bool mobileSuccess = response.status &&
+              (response.data?.status == 'success' ||
+                  response.data?.status == PaystackTransactionStatus.success);
+
+          debugPrint("Mobile success check result: $mobileSuccess");
+          debugPrint("Mobile response.data?.status: ${response.data?.status}");
+          debugPrint(
+              "Mobile response.data?.status type: ${response.data?.status.runtimeType}");
+
+          if (mobileSuccess) {
+            print(
+                "✅ Mobile payment verification successful, calling placeOrder");
+
+            // Prevent duplicate order placement
+            if (!_orderPlaced) {
+              await placeOrder(appState, isCardPayment: true);
+            } else {
+              print("⚠️ Order already placed, skipping placeOrder call");
+            }
             return true;
           } else {
             // Show error message for mobile flow
@@ -175,7 +224,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final appState = Provider.of<ApplicationState>(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Checkout")),
+      appBar: AppBar(
+        title: const Text("Checkout"),
+      ),
       body: appState.cartItems.isEmpty
           ? const Center(child: Text("Your cart is empty"))
           : Padding(
@@ -238,10 +289,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
           padding: const EdgeInsets.all(12.0),
           child: ElevatedButton.icon(
             icon: const Icon(Icons.shopping_cart_checkout),
-            label: Text(isPlacingOrder ? "Processing..." : "Place Order"),
-            onPressed: isPlacingOrder
+            label: Text(_orderPlaced
+                ? "Order Placed!"
+                : isPlacingOrder
+                    ? "Processing..."
+                    : "Place Order"),
+            onPressed: isPlacingOrder || _orderPlaced
                 ? null
                 : () async {
+                    print("🛒 Place Order button pressed");
+
+                    // Prevent multiple order attempts
+                    if (_orderPlaced) {
+                      print("⚠️ Order already placed, ignoring button press");
+                      return;
+                    }
+
                     if (addressController.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text("Enter an address")));
@@ -251,9 +314,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     setState(() => isPlacingOrder = true);
 
                     if (selectedPayment == PaymentMethod.cardPayment) {
+                      print("💳 Card payment selected, calling payWithCard");
                       // For Card, the placeOrder is called INSIDE payWithCard upon verification
                       await payWithCard(context, appState);
                     } else {
+                      print(
+                          "💵 Cash payment selected, calling placeOrder directly");
                       // For Cash, we call it directly here
                       await placeOrder(appState, isCardPayment: false);
                     }
@@ -268,16 +334,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Future<void> placeOrder(ApplicationState appState,
       {required bool isCardPayment}) async {
+    print("🔥 PLACEORDER CALLED - isCardPayment: $isCardPayment");
+
+    // Prevent duplicate order placement
+    if (_orderPlaced) {
+      print("⚠️ Order already placed, skipping duplicate call");
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      print("❌ User is null - cannot place order");
+      return;
+    }
+
+    print("📦 Starting placeOrder for user: ${user.uid}");
 
     try {
       final String orderId = 'ORD_${DateTime.now().millisecondsSinceEpoch}';
+      debugPrint("📋 Order ID: $orderId");
+
       final userDoc = await FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
           .get();
       final userData = userDoc.data();
+      debugPrint("👤 User data fetched: ${userData?.keys.toList()}");
 
       final Map<String, dynamic> orderData = {
         "orderId": orderId,
@@ -295,11 +377,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
         "email": userData?['email'] ?? user.email,
         "displayName": userData?['displayName'] ?? 'Customer',
       };
+      debugPrint("📝 Order data prepared: ${orderData.keys.toList()}");
 
+      debugPrint("💾 Creating WriteBatch...");
       WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      debugPrint("💾 Batch set 1: all_orders/$orderId");
       batch.set(
           FirebaseFirestore.instance.collection("all_orders").doc(orderId),
           orderData);
+
+      debugPrint("💾 Batch set 2: users/${user.uid}/orders/$orderId");
       batch.set(
           FirebaseFirestore.instance
               .collection("users")
@@ -308,20 +396,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
               .doc(orderId),
           orderData);
 
+      debugPrint("⏳ Committing batch...");
       await batch.commit();
+      debugPrint("✅ Batch committed successfully!");
+
       appState.clearCart();
+      debugPrint("🗑️ Cart cleared");
+
+      // Mark order as placed to prevent duplicates
+      _orderPlaced = true;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Order placed successfully!"),
-            backgroundColor: Colors.green));
-        Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const RecipeHomeScreen()),
-            (route) => false);
+            content: Text("Order placed successfully! Tap back to continue."),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3)));
+        debugPrint("✨ Success snackbar shown");
+
+        // Don't auto-navigate - let user tap back button manually
+        // This prevents navigation crashes during hot reload
+        debugPrint("🏠 User can navigate back manually");
       }
     } catch (e) {
       debugPrint("🛑 FIRESTORE ERROR: $e");
+      debugPrint("🛑 Error type: ${e.runtimeType}");
+
+      // Reset flags on error
+      _orderPlaced = false;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
