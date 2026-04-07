@@ -6,6 +6,7 @@ import '../app_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_paystack_max/flutter_paystack_max.dart';
 import 'package:flutter/foundation.dart';
+import './recipe_homescreen.dart';
 
 enum PaymentMethod { cashOnDelivery, cardPayment }
 
@@ -287,45 +288,68 @@ class _CheckoutPageState extends State<CheckoutPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12.0),
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.shopping_cart_checkout),
-            label: Text(_orderPlaced
-                ? "Order Placed!"
-                : isPlacingOrder
-                    ? "Processing..."
-                    : "Place Order"),
-            onPressed: isPlacingOrder || _orderPlaced
-                ? null
-                : () async {
-                    print("🛒 Place Order button pressed");
-
-                    // Prevent multiple order attempts
-                    if (_orderPlaced) {
-                      print("⚠️ Order already placed, ignoring button press");
-                      return;
-                    }
-
-                    if (addressController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Enter an address")));
-                      return;
-                    }
-
-                    setState(() => isPlacingOrder = true);
-
-                    if (selectedPayment == PaymentMethod.cardPayment) {
-                      print("💳 Card payment selected, calling payWithCard");
-                      // For Card, the placeOrder is called INSIDE payWithCard upon verification
-                      await payWithCard(context, appState);
-                    } else {
-                      print(
-                          "💵 Cash payment selected, calling placeOrder directly");
-                      // For Cash, we call it directly here
-                      await placeOrder(appState, isCardPayment: false);
-                    }
-
-                    if (mounted) setState(() => isPlacingOrder = false);
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.home),
+                  label: const Text('Home'),
+                  onPressed: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RecipeHomeScreen()),
+                      (route) => false,
+                    );
                   },
+                ),
+              ),
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.shopping_cart_checkout),
+                  label: Text(_orderPlaced
+                      ? "Order Placed!"
+                      : isPlacingOrder
+                          ? "Processing..."
+                          : "Place Order"),
+                  onPressed: isPlacingOrder || _orderPlaced
+                      ? null
+                      : () async {
+                          print("🛒 Place Order button pressed");
+
+                          // Prevent multiple order attempts
+                          if (_orderPlaced) {
+                            print(
+                                "⚠️ Order already placed, ignoring button press");
+                            return;
+                          }
+
+                          if (addressController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text("Enter an address")));
+                            return;
+                          }
+
+                          setState(() => isPlacingOrder = true);
+
+                          if (selectedPayment == PaymentMethod.cardPayment) {
+                            print(
+                                "💳 Card payment selected, calling payWithCard");
+                            // For Card, the placeOrder is called INSIDE payWithCard upon verification
+                            await payWithCard(context, appState);
+                          } else {
+                            print(
+                                "💵 Cash payment selected, calling placeOrder directly");
+                            // For Cash, we call it directly here
+                            await placeOrder(appState, isCardPayment: false);
+                          }
+
+                          if (mounted) setState(() => isPlacingOrder = false);
+                        },
+                ),
+              ),
+            ],
           ),
         ),
       ),
