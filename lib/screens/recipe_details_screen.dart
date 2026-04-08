@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/app_state.dart';
 import '/recipe.dart';
-import 'cart_item.dart';
-import 'cart_page.dart';
+import '../cart_item.dart';
+import 'cart_screen.dart';
 
 class RecipeDetailsScreen extends StatefulWidget {
   const RecipeDetailsScreen({required this.recipe, super.key});

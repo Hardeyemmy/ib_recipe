@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'app_state.dart';
-import './screens/checkout_screen.dart';
-import './screens/recipe_homescreen.dart';
+import '../app_state.dart';
+import 'checkout_screen.dart';
+import 'recipe_homescreen.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
