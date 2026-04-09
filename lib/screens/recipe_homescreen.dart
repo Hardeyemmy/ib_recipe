@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '/app_state.dart';
-import '/cart_page.dart';
+import './cart_screen.dart';
 import '/recipe_card.dart';
 import '/recipe.dart';
 import '/responsive.dart';
-import '/profile_screen.dart';
+import './profile_screen.dart';
 
 class RecipeHomeScreen extends StatefulWidget {
   const RecipeHomeScreen({super.key});

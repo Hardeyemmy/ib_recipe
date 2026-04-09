@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'recipe.dart';
-import 'recipe_details.dart';
+import './screens/recipe_details_screen.dart';
 import 'animated.dart';
 
 class RecipeCard extends StatefulWidget {

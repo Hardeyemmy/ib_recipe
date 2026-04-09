@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_paystack_max/flutter_paystack_max.dart';
 import 'package:flutter/foundation.dart';
 import './recipe_homescreen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 enum PaymentMethod { cashOnDelivery, cardPayment }
 
@@ -22,7 +23,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   PaymentMethod selectedPayment = PaymentMethod.cashOnDelivery;
   bool isPlacingOrder = false;
   bool _orderPlaced = false; // Prevent duplicate order placement
-  final String mySecretKey = "sk_test_4831664b70082b74c3630c778f7c1130bd283ed7";
+  final String mySecretKey = dotenv.env['SecretKey'] ?? "";
 
   @override
   void initState() {
@@ -101,8 +102,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     ElevatedButton(
                       onPressed: () async {
                         final response = await PaymentService.verifyTransaction(
-                          paystackSecretKey:
-                              "sk_test_4831664b70082b74c3630c778f7c1130bd283ed7",
+                          paystackSecretKey: mySecretKey,
                           initialized.data?.reference ?? ref,
                         );
 
@@ -168,8 +168,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           callbackUrl: 'https://standard.paystack.co/close',
         ).then((_) async {
           final response = await PaymentService.verifyTransaction(
-            paystackSecretKey:
-                "sk_test_4831664b70082b74c3630c778f7c1130bd283ed7",
+            paystackSecretKey: mySecretKey,
             initialized.data?.reference ?? ref,
           );
 

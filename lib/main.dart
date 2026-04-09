@@ -9,10 +9,11 @@ import 'firebase_options.dart';
 import 'app_state.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_web/webview_flutter_web.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await dotenv.load(fileName: ".env");
   if (identical(0, 0.0)) {
     WebViewPlatform.instance = WebWebViewPlatform();
   }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import './screens/recipe_homescreen.dart';
-import 'cart_page.dart';
+import './screens/cart_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
