@@ -121,10 +121,10 @@ class _RecipeDetailsScreenState extends State<RecipeDetailsScreen> {
         bottomNavigationBar: SafeArea(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.white,
               boxShadow: [
-                const BoxShadow(
+                BoxShadow(
                   color: Color.fromRGBO(0, 0, 0, 0.1),
                   blurRadius: 10,
                   offset: Offset(0, -3),

@@ -106,50 +106,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           initialized.data?.reference ?? ref,
                         );
 
-                        // Debug: Print response details
-                        debugPrint(
-                            "Verification Response - Status: ${response.status}, Message: ${response.message}, Data Status: ${response.data?.status}");
-
                         bool success = response.status &&
                             (response.data?.status == 'success' ||
                                 response.data?.status ==
                                     PaystackTransactionStatus.success);
 
-                        debugPrint("Success check result: $success");
-                        debugPrint(
-                            "response.data?.status: ${response.data?.status}");
-                        debugPrint(
-                            "response.data?.status type: ${response.data?.status.runtimeType}");
-                        debugPrint(
-                            "PaystackTransactionStatus.success: ${PaystackTransactionStatus.success}");
-                        debugPrint(
-                            "String 'success' comparison: ${response.data?.status == 'success'}");
-                        debugPrint(
-                            "Enum comparison: ${response.data?.status == PaystackTransactionStatus.success}");
-
-                        if (!mounted) return;
                         if (success) {
-                          print(
-                              "✅ Payment verification successful, calling placeOrder");
+                          if (!mounted) return;
 
-                          // Prevent duplicate order placement
+                          // 1. Save the order
                           if (!_orderPlaced) {
                             await placeOrder(appState, isCardPayment: true);
-                          } else {
-                            print(
-                                "⚠️ Order already placed, skipping placeOrder call");
                           }
 
-                          // Don't auto-pop - let user tap back button
+                          // 2. Close the Dialog first
+                          Navigator.pop(context);
+
+                          // 3. Navigate to Home and clear the history
                         } else {
-                          String errorMessage =
-                              "Payment not verified. Try again after paying.";
-                          if (response.message != null &&
-                              response.message!.isNotEmpty) {
-                            errorMessage += " Details: ${response.message}";
-                          }
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(errorMessage)),
+                            const SnackBar(
+                                content:
+                                    Text("Payment not verified. Try again.")),
                           );
                         }
                       },
@@ -174,16 +152,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
           // Debug: Print response details
           debugPrint(
-              "Mobile Verification Response - Status: ${response.status}, Message: ${response.message}, Data Status: ${response.data?.status}");
+              "Mobile Verification Response - Status: ${response.status}, Message: ${response.message}, Data Status: ${response.data.status}");
 
           bool mobileSuccess = response.status &&
-              (response.data?.status == 'success' ||
-                  response.data?.status == PaystackTransactionStatus.success);
+              (response.data.status == 'success' ||
+                  response.data.status == PaystackTransactionStatus.success);
 
           debugPrint("Mobile success check result: $mobileSuccess");
-          debugPrint("Mobile response.data?.status: ${response.data?.status}");
+          debugPrint("Mobile response.data?.status: ${response.data.status}");
           debugPrint(
-              "Mobile response.data?.status type: ${response.data?.status.runtimeType}");
+              "Mobile response.data?.status type: ${response.data.status.runtimeType}");
 
           if (mobileSuccess) {
             print(
@@ -199,7 +177,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           } else {
             // Show error message for mobile flow
             String errorMessage = "Payment not verified. Please try again.";
-            if (response.message != null && response.message!.isNotEmpty) {
+            if (response.message.isNotEmpty) {
               errorMessage += " Details: ${response.message}";
             }
             if (mounted) {
