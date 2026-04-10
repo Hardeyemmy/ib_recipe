@@ -107,8 +107,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         );
 
                         bool success = response.status &&
-                            (response.data?.status == 'success' ||
-                                response.data?.status ==
+                            (response.data.status == 'success' ||
+                                response.data.status ==
                                     PaystackTransactionStatus.success);
 
                         if (success) {
