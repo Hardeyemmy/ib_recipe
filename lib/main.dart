@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:ib_recipe/screens/admin_screen.dart';
 import 'package:ib_recipe/screens/recipe_homescreen.dart';
+import 'package:ib_recipe/screens/checkout_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:ib_recipe/auth.dart';
 import 'firebase_options.dart';
 import 'app_state.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_web/webview_flutter_web.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
-  if (identical(0, 0.0)) {
-    WebViewPlatform.instance = WebWebViewPlatform();
+
+  // Load .env file only on non-web platforms
+  if (!kIsWeb) {
+    await dotenv.load(fileName: ".env");
   }
 
   await Firebase.initializeApp(
@@ -47,6 +48,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/dashboard': (context) => const AdminDashboard(),
         '/home': (context) => const RecipeHomeScreen(),
+        '/checkout': (context) => const CheckoutPage(),
       },
     );
   }

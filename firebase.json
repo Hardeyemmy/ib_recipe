@@ -1,1 +1,16 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"my-recipe-app-5bb30","appId":"1:310785614071:android:64b2c39c88476b3617f3f2","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"my-recipe-app-5bb30","configurations":{"android":"1:310785614071:android:64b2c39c88476b3617f3f2","ios":"1:310785614071:ios:28b5ecb8d2fa8e7717f3f2","macos":"1:310785614071:ios:28b5ecb8d2fa8e7717f3f2","web":"1:310785614071:web:83884a620f64f84817f3f2","windows":"1:310785614071:web:93cf59d8eaf5806417f3f2"}}}}}}
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

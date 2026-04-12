@@ -51,7 +51,9 @@ class _RecipeCardState extends State<RecipeCard> {
                 AspectRatio(
                   aspectRatio: _imageAspectRatio,
                   child: Image.asset(
-                    widget.recipe.imageUrl,
+                    widget.recipe.imageUrl.startsWith('assets/')
+                        ? widget.recipe.imageUrl
+                        : 'assets/${widget.recipe.imageUrl}',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: Colors.grey[300],

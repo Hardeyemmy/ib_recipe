@@ -161,12 +161,7 @@ class CartPage extends StatelessWidget {
                                     const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const CheckoutPage(),
-                                  ),
-                                );
+                                Navigator.pushNamed(context, '/checkout');
                               },
                               child: const Text(
                                 "Proceed to Checkout",

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:typed_data';
 import 'dart:html' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AddMenuItemScreen extends StatefulWidget {
   const AddMenuItemScreen({super.key});
@@ -70,8 +71,11 @@ class _AddMenuItemScreenState extends State<AddMenuItemScreen> {
     try {
       final price = int.tryParse(priceController.text.trim()) ?? 0;
 
-      // Use selected image name or default
-      final imageUrl = _selectedImageName ?? 'assets/default_recipe.jpg';
+      // Use selected image name or default, ensure it has assets/ prefix
+      String imageUrl = _selectedImageName ?? 'default_recipe.jpg';
+      if (!imageUrl.startsWith('assets/')) {
+        imageUrl = 'assets/$imageUrl';
+      }
 
       await FirebaseFirestore.instance.collection('recipes').add({
         'name': nameController.text.trim(),

@@ -81,7 +81,9 @@ class _RecipeDetailsScreenState extends State<RecipeDetailsScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(_imageBorderRadius),
                 child: Image.asset(
-                  widget.recipe.imageUrl,
+                  widget.recipe.imageUrl.startsWith('assets/')
+                      ? widget.recipe.imageUrl
+                      : 'assets/${widget.recipe.imageUrl}',
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: 400,

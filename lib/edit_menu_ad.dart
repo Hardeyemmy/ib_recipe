@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:typed_data';
 import 'dart:html' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class EditMenuItemScreen extends StatefulWidget {
   final DocumentSnapshot doc;
@@ -99,7 +100,10 @@ class _EditMenuItemScreenState extends State<EditMenuItemScreen> {
       final price = int.tryParse(priceController.text.trim()) ?? 0;
 
       // Use new image path if selected, otherwise keep current
-      final imageUrl = _selectedImageName ?? _currentImageUrl ?? '';
+      String imageUrl = _selectedImageName ?? _currentImageUrl ?? '';
+      if (imageUrl.isNotEmpty && !imageUrl.startsWith('assets/')) {
+        imageUrl = 'assets/$imageUrl';
+      }
 
       await FirebaseFirestore.instance
           .collection('recipes')
