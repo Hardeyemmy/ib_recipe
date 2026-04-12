@@ -4,8 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app_state.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_paystack_max/flutter_paystack_max.dart';
 import 'package:flutter/foundation.dart';
 import './recipe_homescreen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 enum PaymentMethod { cashOnDelivery, cardPayment }
 
@@ -21,6 +23,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   PaymentMethod selectedPayment = PaymentMethod.cashOnDelivery;
   bool isPlacingOrder = false;
   bool _orderPlaced = false; // Prevent duplicate order placement
+  final String mySecretKey = dotenv.env['SecretKey'] ?? "";
 
   @override
   void initState() {
@@ -32,15 +35,133 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // --- PAYSTACK INTEGRATION ---
   Future<bool> payWithCard(
       BuildContext context, ApplicationState appState) async {
-    print("💳 payWithCard called");
-
-    // For web builds, show a message that card payment is not available
-    if (mounted) {
+    // 1. Check if key exists
+    if (mySecretKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                "Card payment is not available. Please use cash on delivery.")),
+        const SnackBar(content: Text("Error: Payment configuration missing.")),
       );
+      return false;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    String customerEmail = user?.email ?? "customer@email.com";
+    double totalAmount = appState.totalPrice;
+
+    // Paystack expects an integer in Kobo/Cents
+    final double amountInKobo = (totalAmount * 100).toDouble();
+    final String localRef = 'REF_${DateTime.now().millisecondsSinceEpoch}';
+
+    try {
+      final request = PaystackTransactionRequest(
+        reference: localRef,
+        secretKey: mySecretKey,
+        currency: PaystackCurrency.ngn,
+        email: customerEmail,
+        amount: amountInKobo,
+        channel: [
+          PaystackPaymentChannel.card,
+          PaystackPaymentChannel.ussd,
+          PaystackPaymentChannel.bankTransfer
+        ],
+      );
+
+      final initialized = await PaymentService.initializeTransaction(request);
+
+      if (!initialized.status || initialized.data == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              backgroundColor: Colors.red, content: Text(initialized.message)));
+        }
+        return false;
+      }
+
+      if (kIsWeb) {
+        final url = Uri.parse(initialized.data?.authorizationUrl ?? "");
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+
+          return await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text("Confirm Payment"),
+                  content: const Text(
+                      "Once you have finished the payment in the new tab, click 'Verify'."),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text("Cancel")),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final response = await PaymentService.verifyTransaction(
+                          initialized.data?.reference ??
+                              localRef, // Positional argument (First)
+                          paystackSecretKey: mySecretKey, // Named argument
+                        );
+                        if (response.status &&
+                            (response.data?.status == 'success')) {
+                          // IMPORTANT: Wait for Firestore to finish BEFORE navigating
+                          if (!_orderPlaced) {
+                            await placeOrder(appState, isCardPayment: true);
+                          }
+                          if (!mounted) return;
+
+                          Navigator.pop(dialogContext, true); // Close Dialog
+
+                          // Clear stack and go home
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const RecipeHomeScreen()),
+                            (route) => false,
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    "Verification failed. Please finish payment.")),
+                          );
+                        }
+                      },
+                      child: const Text("Verify Payment"),
+                    ),
+                  ],
+                ),
+              ) ??
+              false;
+        }
+      } else {
+        // MOBILE FLOW
+        final result = await PaymentService.showPaymentModal(
+          context,
+          transaction: initialized,
+          callbackUrl: 'https://standard.paystack.co/close',
+        );
+
+        // If user closed the modal, we still verify just in case the webhook was faster
+        final response = await PaymentService.verifyTransaction(
+          initialized.data?.reference ??
+              localRef, // Positional argument (First)
+          paystackSecretKey: mySecretKey, // Named argument
+        );
+
+        if (response.status && response.data.status == 'success') {
+          if (!_orderPlaced) {
+            await placeOrder(appState, isCardPayment: true);
+          }
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const RecipeHomeScreen()),
+              (route) => false,
+            );
+          }
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint("Paystack Error: $e");
+      return false;
     }
     return false;
   }
