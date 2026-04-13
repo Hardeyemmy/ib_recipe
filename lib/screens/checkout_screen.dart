@@ -22,24 +22,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController addressController = TextEditingController();
   PaymentMethod selectedPayment = PaymentMethod.cashOnDelivery;
   bool isPlacingOrder = false;
-  bool _orderPlaced = false; // Prevent duplicate order placement
-  final String mySecretKey = dotenv.env['SecretKey'] ?? "";
+  bool _orderPlaced = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // Reset order placed flag when entering checkout
-    _orderPlaced = false;
-  }
-
+  // --- PAYSTACK INTEGRATION ---
   // --- PAYSTACK INTEGRATION ---
   Future<bool> payWithCard(
       BuildContext context, ApplicationState appState) async {
-    // 1. Check if key exists
-    if (mySecretKey.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error: Payment configuration missing.")),
-      );
+    // 1. Initialize and get the key immediately in local scope
+    if (!dotenv.isInitialized) {
+      await dotenv.load();
+    }
+
+    // Capture the key in a local variable to avoid 'NoSuchMethodError' in callbacks
+    final String localSecretKey = dotenv.maybeGet('SecretKey') ?? "";
+
+    if (localSecretKey.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error: SecretKey not found in .env")),
+        );
+      }
       return false;
     }
 
@@ -47,17 +49,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
     String customerEmail = user?.email ?? "customer@email.com";
     double totalAmount = appState.totalPrice;
 
-    // Paystack expects an integer in Kobo/Cents
-    final double amountInKobo = (totalAmount * 100).toDouble();
+    final int amountInKobo = (totalAmount * 100).round();
     final String localRef = 'REF_${DateTime.now().millisecondsSinceEpoch}';
 
     try {
       final request = PaystackTransactionRequest(
         reference: localRef,
-        secretKey: mySecretKey,
+        secretKey: localSecretKey, // Use local variable
         currency: PaystackCurrency.ngn,
         email: customerEmail,
-        amount: amountInKobo,
+        amount: amountInKobo.toDouble(),
         channel: [
           PaystackPaymentChannel.card,
           PaystackPaymentChannel.ussd,
@@ -75,52 +76,117 @@ class _CheckoutPageState extends State<CheckoutPage> {
         return false;
       }
 
+      final String finalReference = initialized.data?.reference ?? localRef;
+
       if (kIsWeb) {
         final url = Uri.parse(initialized.data?.authorizationUrl ?? "");
         if (await canLaunchUrl(url)) {
           await launchUrl(url, mode: LaunchMode.externalApplication);
 
+          // ignore: use_build_context_synchronously
           return await showDialog<bool>(
                 context: context,
                 barrierDismissible: false,
                 builder: (dialogContext) => AlertDialog(
                   title: const Text("Confirm Payment"),
                   content: const Text(
-                      "Once you have finished the payment in the new tab, click 'Verify'."),
+                      "Finish the payment in the new tab, then click 'Verify'."),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(dialogContext, false),
                         child: const Text("Cancel")),
                     ElevatedButton(
                       onPressed: () async {
-                        final response = await PaymentService.verifyTransaction(
-                          initialized.data?.reference ??
-                              localRef, // Positional argument (First)
-                          paystackSecretKey: mySecretKey, // Named argument
+                        // 1. Show a loading indicator so the user doesn't spam the button
+                        showDialog(
+                          context: dialogContext,
+                          barrierDismissible: false,
+                          builder: (context) =>
+                              const Center(child: CircularProgressIndicator()),
                         );
-                        if (response.status &&
-                            (response.data?.status == 'success')) {
-                          // IMPORTANT: Wait for Firestore to finish BEFORE navigating
+
+                        final response = await PaymentService.verifyTransaction(
+                          finalReference,
+                          paystackSecretKey: localSecretKey,
+                        );
+
+                        // Remove the loading indicator
+                        Navigator.pop(dialogContext);
+
+                        debugPrint("--- VERIFICATION DEBUG ---");
+                        debugPrint("Raw Response Message: ${response.message}");
+                        debugPrint("Raw Data Status: ${response.data?.status}");
+
+                        // 2. Expanded Success Check
+                        // Some versions of the API return 'success', 'successful', or just status true with a success message
+                        bool isSuccess = (response.status == true) &&
+                            (response.data?.status == 'success' ||
+                                response.data?.status == 'successful' ||
+                                response.message
+                                        ?.toLowerCase()
+                                        .contains("success") ==
+                                    true);
+
+                        if (isSuccess) {
                           if (!_orderPlaced) {
                             await placeOrder(appState, isCardPayment: true);
                           }
-                          if (!mounted) return;
 
-                          Navigator.pop(dialogContext, true); // Close Dialog
+                          // Close the "Confirm Payment" Alert Dialog
+                          Navigator.of(dialogContext).pop(true);
 
-                          // Clear stack and go home
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const RecipeHomeScreen()),
-                            (route) => false,
-                          );
+                          // Navigate to Home
+                          if (mounted) {
+                            Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const RecipeHomeScreen()),
+                                (route) => false);
+                          }
                         } else {
+                          // 3. Inform the user exactly what the server said
+                          // 1. Get the status as a string (handling potential nulls safely)
+                          final String dataStatus =
+                              response.data.status?.toString() ??
+                                  "unknown_status";
+
+// 2. Get the message as a string
+                          final String apiMessage =
+                              response.message?.toString() ??
+                                  "No message from server";
+
+// 3. Construct the failure reason with explicit String typing
+                          String failureReason;
+
+                          if (dataStatus == "abandoned") {
+                            failureReason =
+                                "Payment was abandoned. Please complete the transaction in the other tab.";
+                          } else if (dataStatus == "failed") {
+                            failureReason =
+                                "The bank declined the transaction.";
+                          } else {
+                            // Fallback to the API message, ensuring it's a String
+                            failureReason = apiMessage;
+                          }
+
+// 4. Show the SnackBar
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    "Verification failed. Please finish payment.")),
+                            SnackBar(
+                              backgroundColor: Colors.orange,
+                              content:
+                                  Text("Verification Failed: $failureReason"),
+                            ),
                           );
+
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            backgroundColor: Colors.orange,
+                            content: Text(
+                                "Paystack says: $failureReason. Try again in a moment."),
+                            action: SnackBarAction(
+                                label: "OK",
+                                textColor: Colors.white,
+                                onPressed: () {}),
+                          ));
                         }
                       },
                       child: const Text("Verify Payment"),
@@ -132,20 +198,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
         }
       } else {
         // MOBILE FLOW
-        final result = await PaymentService.showPaymentModal(
+        await PaymentService.showPaymentModal(
           context,
           transaction: initialized,
           callbackUrl: 'https://standard.paystack.co/close',
         );
 
-        // If user closed the modal, we still verify just in case the webhook was faster
         final response = await PaymentService.verifyTransaction(
-          initialized.data?.reference ??
-              localRef, // Positional argument (First)
-          paystackSecretKey: mySecretKey, // Named argument
+          finalReference,
+          paystackSecretKey: localSecretKey,
         );
 
-        if (response.status && response.data.status == 'success') {
+        if (response.status && response.data?.status == 'success') {
           if (!_orderPlaced) {
             await placeOrder(appState, isCardPayment: true);
           }
@@ -166,14 +230,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return false;
   }
 
+  // ... (build method and placeOrder method stay largely the same, but ensure mounted checks)
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ApplicationState>(
       builder: (context, appState, _) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Text("Checkout"),
-          ),
+          appBar: AppBar(title: const Text("Checkout")),
           body: appState.cartItems.isEmpty
               ? const Center(child: Text("Your cart is empty"))
               : Padding(
@@ -242,16 +306,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.home),
                       label: const Text('Home'),
-                      onPressed: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const RecipeHomeScreen()),
-                          (route) => false,
-                        );
-                      },
+                      onPressed: () => Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const RecipeHomeScreen()),
+                        (route) => false,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.shopping_cart_checkout),
@@ -263,15 +326,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       onPressed: isPlacingOrder || _orderPlaced
                           ? null
                           : () async {
-                              print("🛒 Place Order button pressed");
-
-                              // Prevent multiple order attempts
-                              if (_orderPlaced) {
-                                print(
-                                    "⚠️ Order already placed, ignoring button press");
-                                return;
-                              }
-
                               if (addressController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -283,14 +337,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                               if (selectedPayment ==
                                   PaymentMethod.cardPayment) {
-                                print(
-                                    "💳 Card payment selected, calling payWithCard");
-                                // For Card, the placeOrder is called INSIDE payWithCard upon verification
                                 await payWithCard(context, appState);
                               } else {
-                                print(
-                                    "💵 Cash payment selected, calling placeOrder directly");
-                                // For Cash, we call it directly here
                                 await placeOrder(appState,
                                     isCardPayment: false);
                               }
@@ -311,32 +359,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Future<void> placeOrder(ApplicationState appState,
       {required bool isCardPayment}) async {
-    print("🔥 PLACEORDER CALLED - isCardPayment: $isCardPayment");
-
-    // Prevent duplicate order placement
-    if (_orderPlaced) {
-      print("⚠️ Order already placed, skipping duplicate call");
-      return;
-    }
+    if (_orderPlaced) return;
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      print("❌ User is null - cannot place order");
-      return;
-    }
-
-    print("📦 Starting placeOrder for user: ${user.uid}");
+    if (user == null) return;
 
     try {
       final String orderId = 'ORD_${DateTime.now().millisecondsSinceEpoch}';
-      debugPrint("📋 Order ID: $orderId");
-
       final userDoc = await FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
           .get();
       final userData = userDoc.data();
-      debugPrint("👤 User data fetched: ${userData?.keys.toList()}");
 
       final Map<String, dynamic> orderData = {
         "orderId": orderId,
@@ -354,17 +388,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
         "email": userData?['email'] ?? user.email,
         "displayName": userData?['displayName'] ?? 'Customer',
       };
-      debugPrint("📝 Order data prepared: ${orderData.keys.toList()}");
 
-      debugPrint("💾 Creating WriteBatch...");
       WriteBatch batch = FirebaseFirestore.instance.batch();
-
-      debugPrint("💾 Batch set 1: all_orders/$orderId");
       batch.set(
           FirebaseFirestore.instance.collection("all_orders").doc(orderId),
           orderData);
-
-      debugPrint("💾 Batch set 2: users/${user.uid}/orders/$orderId");
       batch.set(
           FirebaseFirestore.instance
               .collection("users")
@@ -373,39 +401,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
               .doc(orderId),
           orderData);
 
-      debugPrint("⏳ Committing batch...");
       await batch.commit();
-      debugPrint("✅ Batch committed successfully!");
-
       appState.clearCart();
-      debugPrint("🗑️ Cart cleared");
-
-      // Mark order as placed to prevent duplicates
       _orderPlaced = true;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Order placed successfully! Tap back to continue."),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3)));
-        debugPrint("✨ Success snackbar shown");
-
-        // Don't auto-navigate - let user tap back button manually
-        // This prevents navigation crashes during hot reload
-        debugPrint("🏠 User can navigate back manually");
+            content: Text("Order placed successfully!"),
+            backgroundColor: Colors.green));
       }
     } catch (e) {
       debugPrint("🛑 FIRESTORE ERROR: $e");
-      debugPrint("🛑 Error type: ${e.runtimeType}");
-
-      // Reset flags on error
-      _orderPlaced = false;
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text("Database Error: $e"), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Database Error: $e"), backgroundColor: Colors.red));
       }
     }
   }

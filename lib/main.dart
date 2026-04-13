@@ -15,9 +15,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load .env file only on non-web platforms
-  if (!kIsWeb) {
-    await dotenv.load(fileName: ".env");
-  }
+
+  await dotenv.load(fileName: "env");
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
